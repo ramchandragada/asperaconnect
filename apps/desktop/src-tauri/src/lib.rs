@@ -652,25 +652,61 @@ fn register_tel_handler() -> CommandResult<String> {
 
 #[cfg(target_os = "linux")]
 fn register_tel_handler_linux() -> Result<String, AsperaError> {
-    let exe = std::env::current_exe().map_err(|e| AsperaError::Message(e.to_string()))?;
-    let exe = exe.to_string_lossy();
-    let apps = std::env::var_os("HOME")
+    // Prefer a small ADB dialer script — never register the current Tauri exe
+    // (debug builds expect Vite on localhost and show "Connection refused").
+    let home = std::env::var_os("HOME")
         .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join(".local/share/applications");
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+    let bin_dir = home.join(".local/bin");
+    let apps = home.join(".local/share/applications");
+    std::fs::create_dir_all(&bin_dir).map_err(|e| AsperaError::Message(e.to_string()))?;
     std::fs::create_dir_all(&apps).map_err(|e| AsperaError::Message(e.to_string()))?;
+
+    let script_path = bin_dir.join("aspera-tel");
+    const SCRIPT: &str = r#"#!/usr/bin/env bash
+set -euo pipefail
+RAW="${1:-}"
+[[ -z "$RAW" ]] && { notify-send "Aspera Call" "No phone number provided" 2>/dev/null || true; exit 1; }
+NUM="$RAW"
+NUM="${NUM#tel:}"; NUM="${NUM#TEL:}"; NUM="${NUM#callto:}"; NUM="${NUM#CALLTO:}"
+NUM="$(printf '%b' "${NUM//%/\\x}")"
+NUM="$(echo "$NUM" | sed 's/[?\;#].*//; s/[^0-9+]//g')"
+[[ ${#NUM} -lt 3 ]] && { notify-send "Aspera Call" "Invalid number: $RAW" 2>/dev/null || true; exit 1; }
+ADB="$(command -v adb || true)"
+[[ -z "$ADB" ]] && { notify-send "Aspera Call" "adb not found — sudo apt install adb" 2>/dev/null || true; exit 1; }
+SERIAL="$("$ADB" devices 2>/dev/null | awk '/\tdevice$/{print $1; exit}')"
+[[ -z "$SERIAL" ]] && { notify-send "Aspera Call" "No phone connected (USB / wireless debugging)" 2>/dev/null || true; exit 1; }
+if ! "$ADB" -s "$SERIAL" shell am start -a android.intent.action.CALL -d "tel:${NUM}" >/dev/null 2>&1; then
+  "$ADB" -s "$SERIAL" shell am start -a android.intent.action.DIAL -d "tel:${NUM}" >/dev/null 2>&1 || true
+  notify-send "Aspera Call" "Opened dialer for ${NUM} — tap Call on phone" 2>/dev/null || true
+else
+  notify-send "Aspera Call" "Calling ${NUM} via phone / BT headset" 2>/dev/null || true
+fi
+"#;
+    std::fs::write(&script_path, SCRIPT).map_err(|e| AsperaError::Message(e.to_string()))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = std::fs::metadata(&script_path)
+            .map_err(|e| AsperaError::Message(e.to_string()))?
+            .permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&script_path, perms)
+            .map_err(|e| AsperaError::Message(e.to_string()))?;
+    }
+
+    let script = script_path.to_string_lossy();
     let desktop_path = apps.join("aspera-connect-tel.desktop");
     let contents = format!(
         "[Desktop Entry]\n\
 Name=Aspera Connect Call\n\
 Comment=Place calls via connected Android phone\n\
-Exec=\"{exe}\" %u\n\
-Icon=aspera-connect\n\
+Exec={script} %u\n\
+Icon=phone\n\
 Terminal=false\n\
 Type=Application\n\
 Categories=Network;Telephony;\n\
 MimeType=x-scheme-handler/tel;x-scheme-handler/callto;\n\
-NoDisplay=true\n\
 StartupNotify=false\n"
     );
     std::fs::write(&desktop_path, contents).map_err(|e| AsperaError::Message(e.to_string()))?;
@@ -684,7 +720,7 @@ StartupNotify=false\n"
             .status();
     }
     Ok(
-        "Registered Aspera Connect for tel: / callto: links. In Zoho/browser, click a phone number or use Open with Aspera Connect."
+        "Registered Aspera Connect Call for tel: / callto: (dials via ADB). Click a phone number in Zoho/Hub."
             .into(),
     )
 }
