@@ -1,0 +1,37 @@
+{
+  "app-id": "com.asperaconnect.app",
+  "runtime": "org.gnome.Platform",
+  "runtime-version": "47",
+  "sdk": "org.gnome.Sdk",
+  "sdk-extensions": [
+    "org.freedesktop.Sdk.Extension.node20",
+    "org.freedesktop.Sdk.Extension.rust-stable"
+  ],
+  "command": "aspera-connect",
+  "finish-args": [
+    "--share=network",
+    "--share=ipc",
+    "--socket=fallback-x11",
+    "--socket=wayland",
+    "--device=dri",
+    "--device=all",
+    "--filesystem=home",
+    "--filesystem=xdg-download",
+    "--filesystem=xdg-videos",
+    "--talk-name=org.freedesktop.Notifications"
+  ],
+  "modules": [
+    {
+      "name": "aspera-connect",
+      "buildsystem": "simple",
+      "build-commands": [
+        "install -Dm755 aspera-connect /app/bin/aspera-connect",
+        "install -Dm644 com.asperaconnect.app.desktop /app/share/applications/com.asperaconnect.app.desktop"
+      ],
+      "sources": [
+        { "type": "file", "path": "aspera-connect" },
+        { "type": "file", "path": "com.asperaconnect.app.desktop" }
+      ]
+    }
+  ]
+}

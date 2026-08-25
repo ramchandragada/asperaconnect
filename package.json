@@ -1,0 +1,13 @@
+{
+  "name": "aspera-connect-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Aspera Connect — Linux Android Bridge",
+  "scripts": {
+    "dev": "npm --prefix apps/desktop run tauri:dev",
+    "build": "npm --prefix apps/desktop run tauri:build",
+    "check:web": "npm --prefix apps/desktop run build",
+    "check:core": "cargo test -p aspera-core",
+    "check": "npm run check:web && npm run check:core"
+  }
+}

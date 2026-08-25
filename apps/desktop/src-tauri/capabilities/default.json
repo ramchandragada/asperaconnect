@@ -1,0 +1,18 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Aspera Connect desktop capabilities",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "core:window:default",
+    "core:tray:default",
+    "shell:allow-open",
+    "dialog:default",
+    "notification:default",
+    "fs:default",
+    "process:default",
+    "os:default"
+  ]
+}

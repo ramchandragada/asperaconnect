@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Aspera Connect
+Comment=Mirror and control Android from Linux — including tel: click-to-call
+Exec=aspera-connect %u
+Icon=com.asperaconnect.app
+Terminal=false
+Type=Application
+Categories=Utility;Network;Telephony;
+Keywords=android;scrcpy;adb;phone;mirror;tel;call;
+MimeType=x-scheme-handler/tel;x-scheme-handler/callto;

@@ -1,0 +1,22 @@
+# Third-party notices
+
+Aspera Connect (Apache-2.0) may invoke these external tools when present on the host:
+
+## scrcpy
+
+- Project: https://github.com/Genymobile/scrcpy
+- License: Apache-2.0 for most of the project; some dependencies may differ.
+- Aspera Connect does not modify or statically link scrcpy; it launches the system binary.
+
+## Android Debug Bridge (adb)
+
+- Part of Android SDK Platform Tools
+- License: Apache-2.0 (platform-tools)
+- Invoked as an external process.
+
+## KDE Connect (optional)
+
+- https://kdeconnect.kde.org/
+- Invoked via `kdeconnect-cli` when installed; optional bridge only.
+
+Users must install these tools via their distribution packages. Aspera Connect remains Apache-2.0.
