@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg0">#0C1210</color>
+    <color name="bg1">#121A17</color>
+    <color name="bg2">#1A2621</color>
+    <color name="bg3">#24332C</color>
+    <color name="ink">#E8F0EB</color>
+    <color name="ink_dim">#C5D4CB</color>
+    <color name="muted">#9BB0A4</color>
+    <color name="line">#1AFFFFFF</color>
+    <color name="accent">#3ECF8E</color>
+    <color name="accent_dim">#1F3ECF8E</color>
+    <color name="accent_ink">#062816</color>
+    <color name="amber">#F0B429</color>
+    <color name="amber_dim">#24F0B429</color>
+    <color name="amber_ink">#2A1C00</color>
+    <color name="danger">#FF6B6B</color>
+    <color name="danger_dim">#22FF6B6B</color>
+    <color name="danger_ink">#3A0A0A</color>
+    <color name="field_bg">#141E1A</color>
+    <color name="status_bar">#0C1210</color>
+    <color name="nav_bar">#0C1210</color>
+</resources>

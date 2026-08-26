@@ -6,8 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
@@ -28,6 +26,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var linkBanner: LinearLayout
     private lateinit var linkTitle: TextView
     private lateinit var linkDetail: TextView
+    private lateinit var linkPill: TextView
 
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -47,7 +46,7 @@ class MainActivity : ComponentActivity() {
                 if (granted) {
                     "Phone permission granted — PC can place calls directly."
                 } else {
-                    "Phone permission denied — PC calls will open the dialer (tap Call)."
+                    "Phone permission denied — PC calls will open the dialer."
                 }
         }
 
@@ -61,8 +60,7 @@ class MainActivity : ComponentActivity() {
                     putExtra(MirrorService.EXTRA_PIN, pendingPin)
                 }
                 ContextCompat.startForegroundService(this, intent)
-                statusText.text =
-                    "Mirroring started (experimental). Control plane on port ${CompanionService.PORT}."
+                statusText.text = "Mirroring started (experimental)."
             }
         }
 
@@ -76,7 +74,8 @@ class MainActivity : ComponentActivity() {
         linkBanner = findViewById(R.id.linkBanner)
         linkTitle = findViewById(R.id.linkTitle)
         linkDetail = findViewById(R.id.linkDetail)
-        findViewById<TextView>(R.id.portText).text = "Port: ${CompanionService.PORT}"
+        linkPill = findViewById(R.id.linkPill)
+        findViewById<TextView>(R.id.portText).text = "Port ${CompanionService.PORT}"
         refreshIp()
         applyLinkStatus(CompanionService.lastStatus, CompanionService.linkedPcName, CompanionService.lastLocalIp)
 
@@ -86,7 +85,6 @@ class MainActivity : ComponentActivity() {
             CompanionService.start(this, pendingPin)
             refreshIp()
             val ip = CompanionService.guessLocalIpv4() ?: "unknown"
-            statusText.text = "Listening on $ip:${CompanionService.PORT}"
             applyLinkStatus(CompanionService.STATUS_LISTENING, null, ip)
         }
 
@@ -99,7 +97,7 @@ class MainActivity : ComponentActivity() {
             CompanionService.start(this, pendingPin)
             val mpm = getSystemService(MediaProjectionManager::class.java)
             projectionLauncher.launch(mpm.createScreenCaptureIntent())
-            statusText.text = "Waiting for capture permission..."
+            statusText.text = "Waiting for capture permission…"
         }
 
         findViewById<Button>(R.id.accessibilityButton).setOnClickListener {
@@ -109,8 +107,8 @@ class MainActivity : ComponentActivity() {
         findViewById<Button>(R.id.stopButton).setOnClickListener {
             CompanionService.stop(this)
             stopService(Intent(this, MirrorService::class.java))
-            statusText.text = "Stopped"
             applyLinkStatus(CompanionService.STATUS_STOPPED, null, CompanionService.guessLocalIpv4())
+            statusText.text = getString(R.string.footer)
         }
     }
 
@@ -140,46 +138,51 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun applyLinkStatus(status: String, pcName: String?, ip: String?) {
-        val bg = GradientDrawable().apply {
-            cornerRadius = 24f
-        }
         when (status) {
             CompanionService.STATUS_LINKED -> {
-                bg.setColor(Color.parseColor("#E3F8EC"))
-                linkBanner.background = bg
-                linkTitle.setTextColor(Color.parseColor("#0B6B3A"))
-                linkDetail.setTextColor(Color.parseColor("#1B4332"))
-                linkTitle.text = "Connected to PC"
-                linkDetail.text =
-                    "Linked with ${pcName ?: "PC"}. Hub click-to-call is ready."
-                statusText.text = "PC linked${pcName?.let { " ($it)" } ?: ""}."
+                linkBanner.setBackgroundResource(R.drawable.bg_status_ok)
+                linkPill.setBackgroundResource(R.drawable.bg_pill_ok)
+                linkPill.setTextColor(ContextCompat.getColor(this, R.color.accent_ink))
+                linkPill.text = "Linked"
+                linkTitle.setTextColor(ContextCompat.getColor(this, R.color.accent))
+                linkTitle.text = getString(R.string.status_linked_title)
+                linkDetail.setTextColor(ContextCompat.getColor(this, R.color.ink_dim))
+                linkDetail.text = "Linked with ${pcName ?: "PC"}. Hub click‑to‑call is ready."
+                statusText.text = "Connected${pcName?.let { " · $it" } ?: ""}"
             }
             CompanionService.STATUS_LISTENING -> {
-                bg.setColor(Color.parseColor("#FFF6DF"))
-                linkBanner.background = bg
-                linkTitle.setTextColor(Color.parseColor("#8A5A00"))
-                linkDetail.setTextColor(Color.parseColor("#5C4300"))
-                linkTitle.text = "Listening — waiting for PC"
+                linkBanner.setBackgroundResource(R.drawable.bg_status_warn)
+                linkPill.setBackgroundResource(R.drawable.bg_pill_warn)
+                linkPill.setTextColor(ContextCompat.getColor(this, R.color.amber_ink))
+                linkPill.text = "Listening"
+                linkTitle.setTextColor(ContextCompat.getColor(this, R.color.amber))
+                linkTitle.text = getString(R.string.status_listening_title)
+                linkDetail.setTextColor(ContextCompat.getColor(this, R.color.ink_dim))
                 linkDetail.text =
-                    "On the PC open Aspera Connect → Easy mode → Connect (IP ${ip ?: "…"})."
+                    "On the PC: Aspera Connect → Easy mode → Connect. IP ${ip ?: "…"}"
                 statusText.text = "Listening on ${ip ?: "…"}:${CompanionService.PORT}"
             }
             CompanionService.STATUS_FAILED -> {
-                bg.setColor(Color.parseColor("#FFE8E8"))
-                linkBanner.background = bg
-                linkTitle.setTextColor(Color.parseColor("#B00020"))
-                linkDetail.setTextColor(Color.parseColor("#5C1A1A"))
-                linkTitle.text = "Connection failed"
-                linkDetail.text = "PIN mismatch or rejected. Check PIN on phone and PC, then try again."
-                statusText.text = "PC connection failed — check PIN."
+                linkBanner.setBackgroundResource(R.drawable.bg_status_bad)
+                linkPill.setBackgroundResource(R.drawable.bg_pill_bad)
+                linkPill.setTextColor(ContextCompat.getColor(this, android.R.color.white))
+                linkPill.text = "Failed"
+                linkTitle.setTextColor(ContextCompat.getColor(this, R.color.danger))
+                linkTitle.text = getString(R.string.status_failed_title)
+                linkDetail.setTextColor(ContextCompat.getColor(this, R.color.ink_dim))
+                linkDetail.text = "PIN mismatch or rejected. Match PIN on phone and PC, then try again."
+                statusText.text = "Connection failed — check PIN"
             }
             else -> {
-                bg.setColor(Color.parseColor("#FFE8E8"))
-                linkBanner.background = bg
-                linkTitle.setTextColor(Color.parseColor("#B00020"))
-                linkDetail.setTextColor(Color.parseColor("#5C1A1A"))
-                linkTitle.text = "Not listening"
-                linkDetail.text = "Tap “1. Listen for PC” so Hub / Aspera Connect can reach this phone."
+                linkBanner.setBackgroundResource(R.drawable.bg_status_bad)
+                linkPill.setBackgroundResource(R.drawable.bg_pill_bad)
+                linkPill.setTextColor(ContextCompat.getColor(this, android.R.color.white))
+                linkPill.text = "Off"
+                linkTitle.setTextColor(ContextCompat.getColor(this, R.color.ink))
+                linkTitle.text = getString(R.string.status_idle_title)
+                linkDetail.setTextColor(ContextCompat.getColor(this, R.color.ink_dim))
+                linkDetail.text = getString(R.string.status_idle_detail)
+                statusText.text = getString(R.string.footer)
             }
         }
     }
@@ -187,8 +190,8 @@ class MainActivity : ComponentActivity() {
     private fun refreshIp() {
         val ip = CompanionService.lastLocalIp
             ?: CompanionService.guessLocalIpv4()
-            ?: "connect to Wi-Fi"
-        ipText.text = "This phone IP: $ip"
+            ?: "Join Wi‑Fi"
+        ipText.text = ip
     }
 
     private fun ensureCallPermission() {

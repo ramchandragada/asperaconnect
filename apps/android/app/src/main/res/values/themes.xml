@@ -1,4 +1,104 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.AsperaCompanion" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.AsperaCompanion" parent="android:Theme.Material.NoActionBar">
+        <item name="android:colorBackground">@color/bg0</item>
+        <item name="android:windowBackground">@color/bg0</item>
+        <item name="android:statusBarColor">@color/status_bar</item>
+        <item name="android:navigationBarColor">@color/nav_bar</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:textColorPrimary">@color/ink</item>
+        <item name="android:textColorSecondary">@color/muted</item>
+        <item name="android:editTextColor">@color/ink</item>
+        <item name="android:colorAccent">@color/accent</item>
+        <item name="android:colorControlActivated">@color/accent</item>
+        <item name="android:colorControlHighlight">@color/accent_dim</item>
+        <item name="android:buttonStyle">@style/Widget.Aspera.Button.Primary</item>
+        <item name="android:editTextStyle">@style/Widget.Aspera.EditText</item>
+    </style>
+
+    <style name="Widget.Aspera.Button.Primary" parent="android:Widget.Material.Button">
+        <item name="android:background">@drawable/bg_btn_primary</item>
+        <item name="android:textColor">@color/accent_ink</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:letterSpacing">0.01</item>
+        <item name="android:minHeight">@dimen/btn_height</item>
+        <item name="android:paddingLeft">20dp</item>
+        <item name="android:paddingRight">20dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:elevation">0dp</item>
+    </style>
+
+    <style name="Widget.Aspera.Button.Secondary" parent="android:Widget.Material.Button">
+        <item name="android:background">@drawable/bg_btn_secondary</item>
+        <item name="android:textColor">@color/ink</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:minHeight">@dimen/btn_height</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:elevation">0dp</item>
+    </style>
+
+    <style name="Widget.Aspera.Button.Ghost" parent="android:Widget.Material.Button.Borderless">
+        <item name="android:background">@drawable/bg_btn_ghost</item>
+        <item name="android:textColor">@color/muted</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="android:stateListAnimator">@null</item>
+    </style>
+
+    <style name="Widget.Aspera.Button.Danger" parent="android:Widget.Material.Button">
+        <item name="android:background">@drawable/bg_btn_danger</item>
+        <item name="android:textColor">@color/danger</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:minHeight">@dimen/btn_height</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:elevation">0dp</item>
+    </style>
+
+    <style name="Widget.Aspera.EditText" parent="android:Widget.Material.EditText">
+        <item name="android:background">@drawable/bg_field</item>
+        <item name="android:textColor">@color/ink</item>
+        <item name="android:textColorHint">@color/muted</item>
+        <item name="android:paddingLeft">16dp</item>
+        <item name="android:paddingRight">16dp</item>
+        <item name="android:paddingTop">14dp</item>
+        <item name="android:paddingBottom">14dp</item>
+        <item name="android:minHeight">@dimen/field_height</item>
+        <item name="android:textSize">15sp</item>
+    </style>
+
+    <style name="Text.Aspera.Brand" parent="android:TextAppearance.Material.Headline">
+        <item name="android:textColor">@color/ink</item>
+        <item name="android:textSize">36sp</item>
+        <item name="android:fontFamily">serif</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">-0.02</item>
+    </style>
+
+    <style name="Text.Aspera.Title" parent="android:TextAppearance.Material.Title">
+        <item name="android:textColor">@color/ink</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="Text.Aspera.Body" parent="android:TextAppearance.Material.Body1">
+        <item name="android:textColor">@color/muted</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:lineSpacingMultiplier">1.25</item>
+    </style>
+
+    <style name="Text.Aspera.Label" parent="android:TextAppearance.Material.Caption">
+        <item name="android:textColor">@color/muted</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:letterSpacing">0.08</item>
+    </style>
 </resources>

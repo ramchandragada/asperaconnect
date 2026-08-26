@@ -1,5 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Aspera Connect</string>
+    <string name="tagline">Easy mode for Linux</string>
+    <string name="hero_support">Same Wi‑Fi as your PC. No Developer Options. Hub click‑to‑call when you Listen.</string>
+    <string name="status_idle_title">Ready when you are</string>
+    <string name="status_idle_detail">Tap Listen so your PC can reach this phone.</string>
+    <string name="status_listening_title">Listening for PC</string>
+    <string name="status_linked_title">Connected</string>
+    <string name="status_failed_title">Couldn’t connect</string>
+    <string name="ip_label">Phone IP</string>
+    <string name="pin_hint">Optional PIN (match desktop)</string>
+    <string name="listen">Listen for PC</string>
+    <string name="allow_calls">Allow phone calls</string>
+    <string name="optional">Optional</string>
+    <string name="start_mirror">Screen mirror</string>
+    <string name="enable_taps">Tap accessibility</string>
+    <string name="stop">Stop listening</string>
+    <string name="footer">LAN only · no cloud · Apache‑2.0</string>
     <string name="accessibility_desc">Allows Aspera Connect on Linux to send taps and system navigation while Easy mode mirroring is active.</string>
 </resources>
