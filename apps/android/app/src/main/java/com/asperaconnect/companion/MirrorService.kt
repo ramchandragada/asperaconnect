@@ -60,43 +60,17 @@ class MirrorService : Service() {
             projection = mpm.getMediaProjection(resultCode, data)
         }
 
-        registerNsd()
-
-        if (running.compareAndSet(false, true)) {
-            serverJob = scope.launch { serve(pin) }
-        }
+        // Control plane (hello / placeCall) lives in CompanionService on PORT.
+        // MirrorService only holds MediaProjection for the upcoming video path.
+        Log.i(TAG, "MediaProjection ready — use CompanionService for LAN control on $PORT")
         return START_STICKY
     }
 
     private fun registerNsd() {
-        try {
-            val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-            multicastLock = wifi.createMulticastLock("aspera-connect").apply {
-                setReferenceCounted(true)
-                acquire()
-            }
-            nsdManager = getSystemService(NsdManager::class.java)
-            val serviceInfo = NsdServiceInfo().apply {
-                serviceName = "AsperaConnect-${Build.MODEL.replace(" ", "")}"
-                serviceType = SERVICE_TYPE
-                port = PORT
-            }
-            registrationListener = object : NsdManager.RegistrationListener {
-                override fun onServiceRegistered(info: NsdServiceInfo) {
-                    Log.i(TAG, "NSD registered: ${info.serviceName}")
-                }
-                override fun onRegistrationFailed(info: NsdServiceInfo, code: Int) {
-                    Log.w(TAG, "NSD registration failed: $code")
-                }
-                override fun onServiceUnregistered(info: NsdServiceInfo) {}
-                override fun onUnregistrationFailed(info: NsdServiceInfo, code: Int) {}
-            }
-            nsdManager?.registerService(serviceInfo, NsdManager.PROTOCOL_DNS_SD, registrationListener)
-        } catch (e: Exception) {
-            Log.w(TAG, "NSD setup failed: ${e.message}")
-        }
+        // NSD is owned by CompanionService.
     }
 
+    @Suppress("unused")
     private suspend fun serve(pin: String?) {
         ServerSocket(PORT).use { server ->
             Log.i(TAG, "Companion listening on $PORT")

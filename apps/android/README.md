@@ -1,11 +1,11 @@
 # Android companion (Easy mode)
 
-Kotlin + Jetpack Compose app that:
+Kotlin + Jetpack Compose app for Linux Easy mode:
 
-1. Requests **MediaProjection** (screen capture)
-2. Listens on TCP **17891** for desktop Hello / input
-3. Optional **AccessibilityService** for taps / Back / Home / Recents
-4. Optional **NotificationListener** for notification payloads
+1. **CompanionService** — LAN listener on TCP **17891** (no Developer Options)
+2. **placeCall** from the PC / Hub over Wi‑Fi
+3. Optional **MediaProjection** mirror + **AccessibilityService** for taps
+4. Optional **NotificationListener** (not required for company Hub users)
 
 ## Build
 
@@ -14,17 +14,16 @@ Open this folder in Android Studio (Hedgehog+) or:
 ```bash
 # after adding the Gradle wrapper jar via Android Studio once
 ./gradlew :app:assembleDebug
+# install (USB once is OK for sideload; daily use needs no debugging)
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
+## First-run on phone
+
+1. Open app → **Listen for PC**
+2. **Allow phone calls**
+3. Enter the shown IP in desktop Easy mode
+
 ## Protocol (v1)
 
-Newline-delimited JSON on port 17891:
-
-- `{"type":"hello","protocol":1,"pin":""}`
-- `{"type":"helloAck","ok":true,"protocol":1}`
-- `{"type":"startMirror"}`
-- `{"type":"input","kind":"tap","x":100,"y":200}`
-- `{"type":"input","kind":"back"|"home"|"recents"}`
-
-Video elementary stream negotiation uses port **17892** (extension point).
+See [docs/easy-mode.md](../../docs/easy-mode.md).

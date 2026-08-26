@@ -579,21 +579,71 @@ async fn place_call(
         Ok(n) => n,
         Err(e) => return CommandResult::err(e),
     };
-    let adb = match AdbClient::new() {
-        Ok(a) => a,
-        Err(e) => return CommandResult::err(e),
-    };
-    let device = match adb.ensure_ready(serial.as_deref()).await {
-        Ok(d) => d,
-        Err(e) => return CommandResult::err(e),
-    };
-    match adb.place_call(&device.serial, &number, direct).await {
-        Ok(msg) => {
-            let mut cfg = AppConfig::load();
-            cfg.last_device_serial = Some(device.serial);
-            let _ = cfg.save();
-            CommandResult::ok(msg)
+
+    // Prefer ADB (Pro mode) when a phone is ready.
+    if let Ok(adb) = AdbClient::new() {
+        if let Ok(device) = adb.ensure_ready(serial.as_deref()).await {
+            if let Ok(msg) = adb.place_call(&device.serial, &number, direct).await {
+                let mut cfg = AppConfig::load();
+                cfg.last_device_serial = Some(device.serial);
+                let _ = cfg.save();
+                return CommandResult::ok(msg);
+            }
         }
+    }
+
+    // Easy mode: companion APK on LAN (no Developer Options).
+    let cfg = AppConfig::load();
+    let Some(host) = cfg.companion_host.clone() else {
+        return CommandResult::err(AsperaError::Message(
+            "No phone via ADB and no Easy-mode companion saved. Connect USB debugging, or Easy mode → Connect, then try again."
+                .into(),
+        ));
+    };
+    match aspera_core::companion_net::companion_place_call(
+        &host,
+        aspera_core::companion::DEFAULT_COMPANION_PORT,
+        cfg.companion_pin.as_deref(),
+        &number,
+        direct,
+    )
+    .await
+    {
+        Ok(msg) => CommandResult::ok(msg),
+        Err(e) => CommandResult::err(e),
+    }
+}
+
+#[tauri::command]
+async fn companion_place_call(
+    host: Option<String>,
+    number: String,
+    direct: Option<bool>,
+) -> CommandResult<String> {
+    let direct = direct.unwrap_or(true);
+    let number = match aspera_core::normalize_phone_number(&number) {
+        Ok(n) => n,
+        Err(e) => return CommandResult::err(e),
+    };
+    let cfg = AppConfig::load();
+    let host = host
+        .or(cfg.companion_host.clone())
+        .unwrap_or_default();
+    if host.is_empty() {
+        return CommandResult::err(AsperaError::Message(
+            "Set companion IP in Easy mode first".into(),
+        ));
+    }
+    match aspera_core::companion_net::companion_place_call(
+        &host,
+        aspera_core::companion::DEFAULT_COMPANION_PORT,
+        cfg.companion_pin.as_deref(),
+        &number,
+        direct,
+    )
+    .await
+    {
+        Ok(msg) => CommandResult::ok(msg),
         Err(e) => CommandResult::err(e),
     }
 }
@@ -979,6 +1029,13 @@ async fn companion_hello(
         {
             Ok((session, stream)) => {
                 *app_state.companion.lock().await = session.clone();
+                let mut cfg = AppConfig::load();
+                cfg.companion_host = Some(host.clone());
+                cfg.companion_name = Some(name.clone());
+                if let Some(p) = pin.clone() {
+                    cfg.companion_pin = if p.is_empty() { None } else { Some(p) };
+                }
+                let _ = cfg.save();
 
                 let (tx, mut rx) = mpsc::unbounded_channel::<PhoneNotification>();
                 let state2 = app_state.clone();
@@ -1131,6 +1188,7 @@ pub fn run() {
             share_text_to_phone,
             compose_sms,
             place_call,
+            companion_place_call,
             open_phone_app,
             parse_call_uri,
             take_pending_call,

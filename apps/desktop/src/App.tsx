@@ -97,6 +97,8 @@ export default function App() {
     setTools(toolReport);
     setProfiles(profileList);
     setCompanionPin(cfg.companionPin ?? "");
+    if (cfg.companionHost) setCompanionHost(cfg.companionHost);
+    if (cfg.companionName) setCompanionName(cfg.companionName);
     if (cfg.lastDeviceSerial) setSelected(cfg.lastDeviceSerial);
     if (cfg.knownWirelessEndpoints[0]) {
       setConnectHost(cfg.knownWirelessEndpoints[0]);
@@ -718,8 +720,9 @@ export default function App() {
         {view === "companion" && (
           <div className="panel fade-in" style={{ padding: "1.25rem", display: "grid", gap: "0.85rem", maxWidth: 640 }}>
             <p style={{ color: "var(--muted)", marginTop: 0 }}>
-              Easy mode uses the Aspera companion APK — no Developer Options required. Install the APK from
-              <code> apps/android</code>, then pair on your LAN.
+              Easy mode — no Developer Options. Install the companion APK (
+              <code>apps/android</code>), tap <strong>Listen for PC</strong>, then connect here on the same Wi‑Fi.
+              Hub / Zoho <code>tel:</code> calls use this path when USB debugging is off.
             </p>
             <input className="field" value={companionName} onChange={(e) => setCompanionName(e.target.value)} placeholder="Phone name" />
             <input className="field" value={companionHost} onChange={(e) => setCompanionHost(e.target.value)} placeholder="Phone IP" />
@@ -737,7 +740,7 @@ export default function App() {
                   setStatusMsg(
                     res.data?.length
                       ? `Found ${res.data.length} device(s) via mDNS.`
-                      : "No devices found — open Easy mode on your phone.",
+                      : "No devices found — open Aspera Connect on your phone → Listen for PC.",
                   );
                 }}
               >
@@ -759,7 +762,8 @@ export default function App() {
                   const res = await api.companionHello(companionHost, companionName, companionPin || undefined);
                   if (!res.ok) return setError(res.error ?? null);
                   setCompanion(res.data ?? null);
-                  setStatusMsg("Companion hello OK — Easy mode linked on LAN");
+                  setConfig(await api.getConfig());
+                  setStatusMsg("Easy mode linked — Hub click-to-call can use this phone");
                 }}
               >
                 Connect Easy mode
@@ -769,6 +773,33 @@ export default function App() {
                 onClick={async () => setCompanion(await api.getCompanionState())}
               >
                 Refresh state
+              </button>
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+              <input
+                className="field"
+                style={{ flex: 1, minWidth: 160 }}
+                value={callNumber}
+                onChange={(e) => setCallNumber(e.target.value)}
+                placeholder="Test number"
+              />
+              <button
+                className="btn btn-primary"
+                disabled={busy || !callNumber.trim()}
+                onClick={async () => {
+                  setBusy(true);
+                  setError(null);
+                  const res = await api.companionPlaceCall({
+                    number: callNumber,
+                    host: companionHost,
+                    direct: callDirect,
+                  });
+                  setBusy(false);
+                  if (!res.ok) return setError(res.error ?? null);
+                  setStatusMsg(res.data ?? "Call sent via companion");
+                }}
+              >
+                Test call via companion
               </button>
             </div>
             {discoveredCompanions.length ? (

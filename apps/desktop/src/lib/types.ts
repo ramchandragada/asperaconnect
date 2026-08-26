@@ -71,6 +71,8 @@ export interface AppConfig {
   locale: string;
   knownWirelessEndpoints: string[];
   companionPin?: string | null;
+  companionHost?: string | null;
+  companionName?: string | null;
   kdeconnectEnabled: boolean;
   forwardAudio?: boolean;
   recordMirror?: boolean;

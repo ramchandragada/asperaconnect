@@ -53,6 +53,20 @@ pub enum CompanionMessage {
         title: Option<String>,
         playing: bool,
     },
+    /// Desktop → phone: place a cellular call (no ADB).
+    PlaceCall {
+        number: String,
+        #[serde(default = "default_true")]
+        direct: bool,
+    },
+    PlaceCallAck {
+        ok: bool,
+        message: Option<String>,
+    },
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -124,6 +124,12 @@ pub struct AppConfig {
     pub locale: String,
     pub known_wireless_endpoints: Vec<String>,
     pub companion_pin: Option<String>,
+    /// Last Easy-mode companion host (phone LAN IP).
+    #[serde(default)]
+    pub companion_host: Option<String>,
+    /// Friendly name for the last companion.
+    #[serde(default)]
+    pub companion_name: Option<String>,
     pub kdeconnect_enabled: bool,
     /// Forward phone audio to PC while mirroring (scrcpy 2+, Android 11+).
     #[serde(default = "default_true")]
@@ -162,6 +168,8 @@ impl Default for AppConfig {
             locale: "en".into(),
             known_wireless_endpoints: vec![],
             companion_pin: None,
+            companion_host: None,
+            companion_name: None,
             kdeconnect_enabled: true,
             forward_audio: true,
             record_mirror: false,

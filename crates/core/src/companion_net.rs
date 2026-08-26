@@ -78,6 +78,60 @@ async fn complete_hello(stream: TcpStream, pin: Option<&str>) -> Result<TcpStrea
     Ok(stream)
 }
 
+/// One-shot: hello + placeCall on the companion (no Developer Options / ADB).
+pub async fn companion_place_call(
+    host: &str,
+    port: u16,
+    pin: Option<&str>,
+    number: &str,
+    direct: bool,
+) -> Result<String, AsperaError> {
+    let addr = format!("{host}:{port}");
+    let stream = TcpStream::connect(&addr)
+        .await
+        .map_err(|e| AsperaError::Message(format!(
+            "companion unreachable at {addr}: {e}. On the phone open Aspera Connect → Listen for PC."
+        )))?;
+    let stream = complete_hello(stream, pin).await?;
+    let (reader, mut writer) = stream.into_split();
+    let mut reader = BufReader::new(reader);
+
+    let req = json!({
+        "type": "placeCall",
+        "number": number,
+        "direct": direct,
+    });
+    writer
+        .write_all(format!("{req}\n").as_bytes())
+        .await
+        .map_err(|e| AsperaError::Message(e.to_string()))?;
+
+    let mut line = String::new();
+    reader
+        .read_line(&mut line)
+        .await
+        .map_err(|e| AsperaError::Message(e.to_string()))?;
+    let ack: serde_json::Value = serde_json::from_str(line.trim())
+        .map_err(|e| AsperaError::Message(format!("bad placeCallAck: {e}")))?;
+    if ack.get("type").and_then(|v| v.as_str()) != Some("placeCallAck") {
+        return Err(AsperaError::Message(format!(
+            "unexpected companion reply: {}",
+            line.trim()
+        )));
+    }
+    let ok = ack.get("ok").and_then(|v| v.as_bool()).unwrap_or(false);
+    let message = ack
+        .get("message")
+        .and_then(|v| v.as_str())
+        .unwrap_or(if ok { "Call requested" } else { "Call failed" })
+        .to_string();
+    if ok {
+        Ok(format!("{message} (via Easy mode companion)"))
+    } else {
+        Err(AsperaError::Message(message))
+    }
+}
+
 /// Background reader for companion push messages (notifications, battery, etc.).
 pub fn spawn_companion_reader(
     stream: TcpStream,

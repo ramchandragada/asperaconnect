@@ -133,6 +133,16 @@ export const api = {
       name,
       pin: pin || null,
     }),
+  companionPlaceCall: (args: {
+    number: string;
+    host?: string | null;
+    direct?: boolean;
+  }) =>
+    invoke<CommandResult<string>>("companion_place_call", {
+      number: args.number,
+      host: args.host ?? null,
+      direct: args.direct ?? true,
+    }),
   listNotifications: () => invoke<PhoneNotification[]>("list_notifications"),
   markNotificationRead: (id: string) => invoke<void>("mark_notification_read", { id }),
   clearNotifications: () => invoke<void>("clear_notifications"),
