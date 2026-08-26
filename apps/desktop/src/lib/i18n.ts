@@ -2,7 +2,7 @@ export type Locale = "en" | "es" | "de" | "fr" | "hi";
 
 const en = {
   brand: "Aspera Connect",
-  tagline: "Android on your Linux desktop — free forever",
+  tagline: "Click-to-call from Linux — free forever",
   connect: "Connect",
   mirror: "Mirror",
   refresh: "Refresh",

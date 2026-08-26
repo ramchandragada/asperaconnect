@@ -164,16 +164,4 @@ export interface CompanionSessionState {
   lastError?: string | null;
 }
 
-export type AppView =
-  | "home"
-  | "apps"
-  | "notifications"
-  | "wireless"
-  | "files"
-  | "photos"
-  | "share"
-  | "sms"
-  | "companion"
-  | "kde"
-  | "settings"
-  | "help";
+export type AppView = "companion" | "settings" | "help";
