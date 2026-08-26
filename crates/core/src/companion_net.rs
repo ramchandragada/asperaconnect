@@ -21,7 +21,7 @@ pub async fn connect_companion(
     let stream = TcpStream::connect(&addr)
         .await
         .map_err(|e| AsperaError::Message(format!("companion connect failed: {e}")))?;
-    let stream = complete_hello(stream, pin).await?;
+    let stream = complete_hello(stream, pin, Some(name_hint)).await?;
     let session = CompanionSessionState {
         connected: true,
         device: Some(CompanionDevice {
@@ -39,7 +39,11 @@ pub async fn connect_companion(
     Ok((session, stream))
 }
 
-async fn complete_hello(stream: TcpStream, pin: Option<&str>) -> Result<TcpStream, AsperaError> {
+async fn complete_hello(
+    stream: TcpStream,
+    pin: Option<&str>,
+    client_name: Option<&str>,
+) -> Result<TcpStream, AsperaError> {
     let (reader, mut writer) = stream.into_split();
     let mut reader = BufReader::new(reader);
 
@@ -47,6 +51,7 @@ async fn complete_hello(stream: TcpStream, pin: Option<&str>) -> Result<TcpStrea
         "type": "hello",
         "protocol": PROTOCOL_VERSION,
         "pin": pin.unwrap_or(""),
+        "name": client_name.unwrap_or("PC"),
     });
     writer
         .write_all(format!("{hello}\n").as_bytes())
@@ -92,7 +97,7 @@ pub async fn companion_place_call(
         .map_err(|e| AsperaError::Message(format!(
             "companion unreachable at {addr}: {e}. On the phone open Aspera Connect → Listen for PC."
         )))?;
-    let stream = complete_hello(stream, pin).await?;
+    let stream = complete_hello(stream, pin, Some("Hub / click-to-call")).await?;
     let (reader, mut writer) = stream.into_split();
     let mut reader = BufReader::new(reader);
 

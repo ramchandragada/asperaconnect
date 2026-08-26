@@ -1063,8 +1063,21 @@ async fn companion_hello(
                 *app_state.notification_fanout.lock().await = Some(fanout);
 
                 let reader = aspera_core::companion_net::spawn_companion_reader(stream, tx);
-                *app_state.companion_reader.lock().await = Some(reader);
+                let drop_state = app_state.clone();
+                let drop_app = app.clone();
+                let watcher = tokio::spawn(async move {
+                    let _ = reader.await;
+                    *drop_state.companion.lock().await = CompanionSessionState {
+                        connected: false,
+                        device: None,
+                        mirroring: false,
+                        last_error: Some("Disconnected from phone".into()),
+                    };
+                    let _ = drop_app.emit("companion://status", false);
+                });
+                *app_state.companion_reader.lock().await = Some(watcher);
 
+                let _ = app.emit("companion://status", true);
                 CommandResult::ok(session)
             }
             Err(e) => CommandResult::err(e),

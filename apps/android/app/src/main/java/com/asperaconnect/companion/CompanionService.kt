@@ -34,6 +34,7 @@ import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -48,6 +49,8 @@ class CompanionService : Service() {
     private var registrationListener: NsdManager.RegistrationListener? = null
     private var multicastLock: WifiManager.MulticastLock? = null
     private val pinRef = AtomicReference<String?>(null)
+    private val linkedClients = AtomicInteger(0)
+    private var foregroundReady = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -59,18 +62,38 @@ class CompanionService : Service() {
             }
             else -> {
                 pinRef.set(intent?.getStringExtra(EXTRA_PIN))
-                startAsForeground()
+                ensureForeground("Listening for PC — ${guessLocalIpv4() ?: "Wi‑Fi"}:$PORT")
                 registerNsd()
                 if (running.compareAndSet(false, true)) {
                     serverJob = scope.launch { serve() }
                 }
                 lastLocalIp = guessLocalIpv4()
+                linkedPcName = null
+                broadcastStatus(STATUS_LISTENING, null)
             }
         }
         return START_STICKY
     }
 
-    private fun startAsForeground() {
+    private fun ensureForeground(text: String) {
+        val notification = buildNotification(text)
+        if (!foregroundReady) {
+            if (Build.VERSION.SDK_INT >= 29) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE,
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+            foregroundReady = true
+        } else {
+            getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification)
+        }
+    }
+
+    private fun buildNotification(text: String): Notification {
         val channelId = "aspera_companion"
         val nm = getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= 26) {
@@ -88,23 +111,26 @@ class CompanionService : Service() {
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val notification: Notification = NotificationCompat.Builder(this, channelId)
+        return NotificationCompat.Builder(this, channelId)
             .setContentTitle("Aspera Connect")
-            .setContentText("Listening for PC on port $PORT — ${guessLocalIpv4() ?: "Wi‑Fi"}")
+            .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_menu_call)
             .setContentIntent(open)
             .setOngoing(true)
             .build()
+    }
 
-        if (Build.VERSION.SDK_INT >= 29) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE,
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
-        }
+    private fun broadcastStatus(status: String, pcName: String?) {
+        linkedPcName = pcName
+        lastStatus = status
+        sendBroadcast(
+            Intent(ACTION_STATUS).apply {
+                setPackage(packageName)
+                putExtra(EXTRA_STATUS, status)
+                putExtra(EXTRA_PC_NAME, pcName)
+                putExtra(EXTRA_IP, lastLocalIp ?: guessLocalIpv4())
+            },
+        )
     }
 
     private fun registerNsd() {
@@ -156,6 +182,7 @@ class CompanionService : Service() {
         val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream()))
         val pin = pinRef.get()
         var authed = false
+        var pcLabel: String? = null
         try {
             while (true) {
                 val line = reader.readLine() ?: break
@@ -164,6 +191,7 @@ class CompanionService : Service() {
                     "hello" -> {
                         val offered = msg.optString("pin", "")
                         val ok = pin.isNullOrBlank() || pin == offered
+                        pcLabel = msg.optString("name", "").ifBlank { "PC" }
                         val ack = JSONObject()
                             .put("type", "helloAck")
                             .put("ok", ok)
@@ -176,7 +204,14 @@ class CompanionService : Service() {
                         writer.newLine()
                         writer.flush()
                         authed = ok
-                        if (!ok) break
+                        if (ok) {
+                            linkedClients.incrementAndGet()
+                            ensureForeground("Linked to $pcLabel — click-to-call ready")
+                            broadcastStatus(STATUS_LINKED, pcLabel)
+                        } else {
+                            broadcastStatus(STATUS_FAILED, pcLabel)
+                            break
+                        }
                     }
                     "placeCall" -> {
                         if (!authed) {
@@ -200,7 +235,6 @@ class CompanionService : Service() {
                         writer.flush()
                     }
                     "startMirror" -> {
-                        // Video path is a later Easy-mode milestone.
                         val ack = JSONObject()
                             .put("type", "mirrorReady")
                             .put("ok", false)
@@ -222,6 +256,13 @@ class CompanionService : Service() {
             try {
                 socket.close()
             } catch (_: Exception) {
+            }
+            if (authed) {
+                val left = linkedClients.decrementAndGet().coerceAtLeast(0)
+                if (left == 0) {
+                    ensureForeground("Listening for PC — ${guessLocalIpv4() ?: "Wi‑Fi"}:$PORT")
+                    broadcastStatus(STATUS_LISTENING, null)
+                }
             }
         }
     }
@@ -251,7 +292,6 @@ class CompanionService : Service() {
             startActivity(intent)
             true to if (direct) "Calling $number" else "Opened dialer for $number"
         } catch (e: SecurityException) {
-            // Fall back to dialer UI if CALL_PHONE not granted.
             try {
                 val dial = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -268,6 +308,7 @@ class CompanionService : Service() {
 
     override fun onDestroy() {
         running.set(false)
+        linkedClients.set(0)
         serverJob?.cancel()
         scope.cancel()
         try {
@@ -279,12 +320,23 @@ class CompanionService : Service() {
         } catch (_: Exception) {
         }
         lastLocalIp = null
+        linkedPcName = null
+        broadcastStatus(STATUS_STOPPED, null)
+        foregroundReady = false
         super.onDestroy()
     }
 
     companion object {
         const val EXTRA_PIN = "pin"
         const val ACTION_STOP = "com.asperaconnect.companion.STOP"
+        const val ACTION_STATUS = "com.asperaconnect.companion.STATUS"
+        const val EXTRA_STATUS = "status"
+        const val EXTRA_PC_NAME = "pcName"
+        const val EXTRA_IP = "ip"
+        const val STATUS_LISTENING = "listening"
+        const val STATUS_LINKED = "linked"
+        const val STATUS_FAILED = "failed"
+        const val STATUS_STOPPED = "stopped"
         const val PORT = 17891
         const val VIDEO_PORT = 17892
         const val PROTOCOL = 1
@@ -296,7 +348,15 @@ class CompanionService : Service() {
         var lastLocalIp: String? = null
             private set
 
-        fun isRunning(): Boolean = lastLocalIp != null
+        @Volatile
+        var linkedPcName: String? = null
+            private set
+
+        @Volatile
+        var lastStatus: String = STATUS_STOPPED
+            private set
+
+        fun isRunning(): Boolean = lastStatus == STATUS_LISTENING || lastStatus == STATUS_LINKED
 
         fun start(context: Context, pin: String?) {
             val intent = Intent(context, CompanionService::class.java).apply {

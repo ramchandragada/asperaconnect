@@ -135,6 +135,66 @@ textarea {
   background: color-mix(in srgb, var(--ink) 5%, transparent);
 }
 
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot-ok {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.status-dot-warn {
+  background: var(--accent-2);
+}
+
+.easy-status {
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+}
+
+.easy-status-title {
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.easy-status-detail {
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.easy-status-ok {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg2));
+}
+
+.easy-status-ok .easy-status-title {
+  color: var(--accent);
+}
+
+.easy-status-warn {
+  border-color: color-mix(in srgb, var(--accent-2) 45%, var(--line));
+  background: color-mix(in srgb, var(--accent-2) 10%, var(--bg2));
+}
+
+.easy-status-warn .easy-status-title {
+  color: var(--accent-2);
+}
+
+.easy-status-bad {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
+  background: color-mix(in srgb, var(--danger) 10%, var(--bg2));
+}
+
+.easy-status-bad .easy-status-title {
+  color: var(--danger);
+}
+
 .fade-in {
   animation: fadeIn 0.35s ease both;
 }

@@ -139,6 +139,31 @@ export default function App() {
   }, [config?.firstRunCompleted, refreshDevices]);
 
   useEffect(() => {
+    void api.getCompanionState().then(setCompanion);
+    let unlisten: (() => void) | undefined;
+    void listen<boolean>("companion://status", (ev) => {
+      void api.getCompanionState().then(setCompanion);
+      if (ev.payload) {
+        setStatusMsg("Easy mode linked — Hub click-to-call can use this phone");
+      } else {
+        setStatusMsg("Easy mode disconnected — Connect again when the phone is Listening.");
+      }
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
+  }, []);
+
+  useEffect(() => {
+    if (view !== "companion") return;
+    void api.getCompanionState().then(setCompanion);
+    const id = window.setInterval(() => {
+      void api.getCompanionState().then(setCompanion);
+    }, 2500);
+    return () => window.clearInterval(id);
+  }, [view]);
+
+  useEffect(() => {
     let unlistenMirror: (() => void) | undefined;
     let unlistenCall: (() => void) | undefined;
     let unlistenClip: (() => void) | undefined;
@@ -394,7 +419,13 @@ export default function App() {
         <Nav icon={<Image size={18} />} label={t(locale, "photos")} active={view === "photos"} onClick={() => setView("photos")} />
         <Nav icon={<Share2 size={18} />} label={t(locale, "share")} active={view === "share"} onClick={() => setView("share")} />
         <Nav icon={<MessageSquare size={18} />} label={t(locale, "sms")} active={view === "sms"} onClick={() => { setView("sms"); void api.kdeStatus().then(setKde); }} />
-        <Nav icon={<Smartphone size={18} />} label={t(locale, "companion")} active={view === "companion"} onClick={() => setView("companion")} />
+        <Nav
+          icon={<Smartphone size={18} />}
+          label={t(locale, "companion")}
+          active={view === "companion"}
+          onClick={() => setView("companion")}
+          status={companion?.connected ? "ok" : config?.companionHost ? "warn" : undefined}
+        />
         <Nav icon={<Radio size={18} />} label={t(locale, "kde")} active={view === "kde"} onClick={() => { setView("kde"); void api.kdeStatus().then(setKde); }} />
         <Nav icon={<Settings size={18} />} label={t(locale, "settings")} active={view === "settings"} onClick={() => setView("settings")} />
         <Nav icon={<HelpCircle size={18} />} label={t(locale, "help")} active={view === "help"} onClick={() => setView("help")} />
@@ -422,7 +453,9 @@ export default function App() {
           </div>
         </header>
 
-        {error ? <div style={{ marginBottom: "1rem" }}><ErrorBanner error={error} onDismiss={() => setError(null)} /></div> : null}
+        {error && !(view === "companion" && error.code === "no_device") ? (
+          <div style={{ marginBottom: "1rem" }}><ErrorBanner error={error} onDismiss={() => setError(null)} /></div>
+        ) : null}
         {statusMsg ? (
           <div className="panel fade-in" style={{ padding: "0.85rem 1rem", marginBottom: "1rem", color: "var(--accent)" }}>
             {statusMsg}
@@ -719,6 +752,13 @@ export default function App() {
 
         {view === "companion" && (
           <div className="panel fade-in" style={{ padding: "1.25rem", display: "grid", gap: "0.85rem", maxWidth: 640 }}>
+            <EasyLinkStatus
+              connected={!!companion?.connected}
+              host={companion?.device?.host ?? companionHost}
+              name={companion?.device?.name ?? companionName}
+              savedHost={config?.companionHost ?? null}
+              lastError={companion?.lastError ?? null}
+            />
             <p style={{ color: "var(--muted)", marginTop: 0 }}>
               Easy mode — no Developer Options. Install the companion APK (
               <code>apps/android</code>), tap <strong>Listen for PC</strong>, then connect here on the same Wi‑Fi.
@@ -759,8 +799,17 @@ export default function App() {
               <button
                 className="btn btn-primary"
                 onClick={async () => {
+                  setError(null);
                   const res = await api.companionHello(companionHost, companionName, companionPin || undefined);
-                  if (!res.ok) return setError(res.error ?? null);
+                  if (!res.ok) {
+                    setCompanion({
+                      connected: false,
+                      device: null,
+                      mirroring: false,
+                      lastError: res.error?.message ?? "Connection failed",
+                    });
+                    return setError(res.error ?? null);
+                  }
                   setCompanion(res.data ?? null);
                   setConfig(await api.getConfig());
                   setStatusMsg("Easy mode linked — Hub click-to-call can use this phone");
@@ -818,11 +867,6 @@ export default function App() {
                   </button>
                 ))}
               </div>
-            ) : null}
-            {companion ? (
-              <pre style={{ background: "rgba(0,0,0,0.25)", padding: "0.85rem", borderRadius: 12, overflow: "auto" }}>
-                {JSON.stringify(companion, null, 2)}
-              </pre>
             ) : null}
           </div>
         )}
@@ -928,17 +972,71 @@ function Nav({
   label,
   active,
   onClick,
+  status,
 }: {
   icon: ReactNode;
   label: string;
   active: boolean;
   onClick: () => void;
+  status?: "ok" | "warn";
 }) {
   return (
     <button className="nav-item" data-active={active} onClick={onClick}>
       {icon}
-      <span>{label}</span>
+      <span style={{ flex: 1 }}>{label}</span>
+      {status ? <span className={`status-dot status-dot-${status}`} aria-hidden /> : null}
     </button>
+  );
+}
+
+function EasyLinkStatus({
+  connected,
+  host,
+  name,
+  savedHost,
+  lastError,
+}: {
+  connected: boolean;
+  host: string;
+  name: string;
+  savedHost: string | null;
+  lastError: string | null;
+}) {
+  if (connected) {
+    return (
+      <div className="easy-status easy-status-ok" role="status">
+        <div className="easy-status-title">Connected</div>
+        <div className="easy-status-detail">
+          Linked to <strong>{name}</strong> at <code>{host}</code>. Hub click-to-call can use this phone.
+        </div>
+      </div>
+    );
+  }
+  if (lastError) {
+    return (
+      <div className="easy-status easy-status-bad" role="status">
+        <div className="easy-status-title">Not connected</div>
+        <div className="easy-status-detail">{lastError}</div>
+      </div>
+    );
+  }
+  if (savedHost) {
+    return (
+      <div className="easy-status easy-status-warn" role="status">
+        <div className="easy-status-title">Saved phone IP — not linked yet</div>
+        <div className="easy-status-detail">
+          Hub can dial via <code>{savedHost}</code> if the phone is Listening. Tap <strong>Connect Easy mode</strong> for a live link.
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="easy-status easy-status-bad" role="status">
+      <div className="easy-status-title">Not connected</div>
+      <div className="easy-status-detail">
+        On the phone tap Listen for PC, enter that IP here, then Connect Easy mode.
+      </div>
+    </div>
   );
 }
 
