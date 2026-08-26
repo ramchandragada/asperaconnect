@@ -122,6 +122,18 @@
                     android:textSize="14sp" />
             </LinearLayout>
 
+            <TextView
+                android:id="@+id/captureText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_md"
+                android:background="@drawable/bg_card"
+                android:fontFamily="sans-serif-medium"
+                android:padding="@dimen/space_md"
+                android:text="Screen capture: OFF — tap “3. Allow screen capture” below"
+                android:textColor="@color/amber"
+                android:textSize="14sp" />
+
             <!-- IP card -->
             <LinearLayout
                 android:layout_width="match_parent"

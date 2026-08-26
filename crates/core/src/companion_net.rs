@@ -188,10 +188,14 @@ pub async fn companion_start_mirror(
             .get("reason")
             .and_then(|v| v.as_str())
             .unwrap_or("mirror_failed");
-        let hint = if reason == "need_screen_capture" {
-            "On the phone tap Allow screen capture, then try Start Easy mirror again."
-        } else {
-            "Could not start Easy mirror on the phone."
+        let hint = match reason {
+            "need_screen_capture" => {
+                "On the phone: tap “3. Allow screen capture”, accept the Android cast dialog, wait until it says Screen capture: ON, then try again."
+            }
+            "stream_start_failed" => {
+                "Phone got capture permission but could not start the video stream. Stop on phone, tap step 3 again, then retry."
+            }
+            _ => "Could not start Easy mirror on the phone.",
         };
         return Err(AsperaError::Message(format!("{hint} ({reason})")));
     }

@@ -246,26 +246,36 @@ class CompanionService : Service() {
                             continue
                         }
                         val dm = resources.displayMetrics
-                        val started = if (MirrorBridge.hasProjection()) {
-                            MirrorBridge.startStreaming(
-                                dm.densityDpi,
-                                dm.widthPixels,
-                                dm.heightPixels,
-                            )
-                        } else {
-                            false
+                        var reason = "ok"
+                        val started = when {
+                            MirrorBridge.isStreaming() -> true
+                            MirrorBridge.hasProjection() -> {
+                                val ok = MirrorBridge.startStreaming(
+                                    dm.densityDpi,
+                                    dm.widthPixels,
+                                    dm.heightPixels,
+                                )
+                                if (!ok) reason = "stream_start_failed"
+                                ok
+                            }
+                            else -> {
+                                reason = "need_screen_capture"
+                                MirrorService.notifyNeedCapture(this@CompanionService)
+                                false
+                            }
                         }
                         val ack = JSONObject()
                             .put("type", "mirrorReady")
                             .put("ok", started)
                             .put(
                                 "reason",
-                                if (started) JSONObject.NULL else "need_screen_capture",
+                                if (started) JSONObject.NULL else reason,
                             )
                             .put("port", MirrorBridge.VIDEO_PORT)
                             .put("codec", "h264")
                             .put("width", MirrorBridge.width)
                             .put("height", MirrorBridge.height)
+                            .put("captureReady", MirrorBridge.hasProjection())
                         writer.write(ack.toString())
                         writer.newLine()
                         writer.flush()

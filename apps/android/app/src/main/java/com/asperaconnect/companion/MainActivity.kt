@@ -27,16 +27,26 @@ class MainActivity : ComponentActivity() {
     private lateinit var linkTitle: TextView
     private lateinit var linkDetail: TextView
     private lateinit var linkPill: TextView
+    private lateinit var captureText: TextView
 
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action != CompanionService.ACTION_STATUS) return
-            applyLinkStatus(
-                intent.getStringExtra(CompanionService.EXTRA_STATUS)
-                    ?: CompanionService.STATUS_STOPPED,
-                intent.getStringExtra(CompanionService.EXTRA_PC_NAME),
-                intent.getStringExtra(CompanionService.EXTRA_IP),
-            )
+            when (intent?.action) {
+                CompanionService.ACTION_STATUS -> {
+                    applyLinkStatus(
+                        intent.getStringExtra(CompanionService.EXTRA_STATUS)
+                            ?: CompanionService.STATUS_STOPPED,
+                        intent.getStringExtra(CompanionService.EXTRA_PC_NAME),
+                        intent.getStringExtra(CompanionService.EXTRA_IP),
+                    )
+                }
+                MirrorService.ACTION_CAPTURE_STATE -> {
+                    refreshCaptureUi(intent.getBooleanExtra(MirrorService.EXTRA_CAPTURE_READY, false))
+                }
+                MirrorService.ACTION_REQUEST_CAPTURE -> {
+                    launchScreenCapture()
+                }
+            }
         }
     }
 
@@ -55,12 +65,10 @@ class MainActivity : ComponentActivity() {
             if (result.resultCode == RESULT_OK && result.data != null) {
                 CompanionService.start(this, pendingPin)
                 MirrorService.startWithProjection(this, result.resultCode, result.data!!, pendingPin)
-                statusText.text = "Screen capture on — on the PC tap Start Easy mirror."
-                applyLinkStatus(
-                    CompanionService.lastStatus.ifBlank { CompanionService.STATUS_LISTENING },
-                    CompanionService.linkedPcName,
-                    CompanionService.guessLocalIpv4(),
-                )
+                statusText.text = "Starting screen capture…"
+            } else {
+                refreshCaptureUi(false)
+                statusText.text = "Screen capture cancelled — tap step 3 again."
             }
         }
 
@@ -75,9 +83,11 @@ class MainActivity : ComponentActivity() {
         linkTitle = findViewById(R.id.linkTitle)
         linkDetail = findViewById(R.id.linkDetail)
         linkPill = findViewById(R.id.linkPill)
+        captureText = findViewById(R.id.captureText)
         findViewById<TextView>(R.id.portText).text = "Port ${CompanionService.PORT}"
         refreshIp()
         applyLinkStatus(CompanionService.lastStatus, CompanionService.linkedPcName, CompanionService.lastLocalIp)
+        refreshCaptureUi(MirrorBridge.hasProjection() || MirrorBridge.isStreaming())
 
         findViewById<Button>(R.id.listenButton).setOnClickListener {
             pendingPin = pinInput.text?.toString().orEmpty()
@@ -93,11 +103,7 @@ class MainActivity : ComponentActivity() {
         }
 
         findViewById<Button>(R.id.mirrorButton).setOnClickListener {
-            pendingPin = pinInput.text?.toString().orEmpty()
-            CompanionService.start(this, pendingPin)
-            val mpm = getSystemService(MediaProjectionManager::class.java)
-            projectionLauncher.launch(mpm.createScreenCaptureIntent())
-            statusText.text = "Allow screen capture…"
+            launchScreenCapture()
         }
 
         findViewById<Button>(R.id.accessibilityButton).setOnClickListener {
@@ -108,13 +114,40 @@ class MainActivity : ComponentActivity() {
             CompanionService.stop(this)
             MirrorService.stop(this)
             applyLinkStatus(CompanionService.STATUS_STOPPED, null, CompanionService.guessLocalIpv4())
+            refreshCaptureUi(false)
             statusText.text = getString(R.string.footer)
         }
+
+        maybeHandleCaptureIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        maybeHandleCaptureIntent(intent)
+    }
+
+    private fun maybeHandleCaptureIntent(intent: Intent?) {
+        if (intent?.action == MirrorService.ACTION_REQUEST_CAPTURE) {
+            launchScreenCapture()
+        }
+    }
+
+    private fun launchScreenCapture() {
+        pendingPin = pinInput.text?.toString().orEmpty()
+        CompanionService.start(this, pendingPin)
+        val mpm = getSystemService(MediaProjectionManager::class.java)
+        projectionLauncher.launch(mpm.createScreenCaptureIntent())
+        statusText.text = "Android will ask to start casting / recording — tap Start / Allow."
     }
 
     override fun onStart() {
         super.onStart()
-        val filter = IntentFilter(CompanionService.ACTION_STATUS)
+        val filter = IntentFilter().apply {
+            addAction(CompanionService.ACTION_STATUS)
+            addAction(MirrorService.ACTION_CAPTURE_STATE)
+            addAction(MirrorService.ACTION_REQUEST_CAPTURE)
+        }
         if (Build.VERSION.SDK_INT >= 33) {
             registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
@@ -135,6 +168,17 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         refreshIp()
         applyLinkStatus(CompanionService.lastStatus, CompanionService.linkedPcName, CompanionService.lastLocalIp)
+        refreshCaptureUi(MirrorBridge.hasProjection() || MirrorBridge.isStreaming())
+    }
+
+    private fun refreshCaptureUi(ready: Boolean) {
+        if (ready) {
+            captureText.setTextColor(ContextCompat.getColor(this, R.color.accent))
+            captureText.text = "Screen capture: ON — now tap Start Easy mirror on the PC"
+        } else {
+            captureText.setTextColor(ContextCompat.getColor(this, R.color.amber))
+            captureText.text = "Screen capture: OFF — tap “3. Allow screen capture” below"
+        }
     }
 
     private fun applyLinkStatus(status: String, pcName: String?, ip: String?) {
@@ -159,7 +203,7 @@ class MainActivity : ComponentActivity() {
                 linkTitle.text = getString(R.string.status_listening_title)
                 linkDetail.setTextColor(ContextCompat.getColor(this, R.color.ink_dim))
                 linkDetail.text =
-                    "On the PC: Aspera Connect → Easy mode → Connect. Use this IP (${ip ?: "…"}). Phone Wi‑Fi + PC wired LAN is fine if they can reach each other."
+                    "On the PC: Aspera Connect → Easy mode → Connect. Use this IP (${ip ?: "…"})."
                 statusText.text = "Listening on ${ip ?: "…"}:${CompanionService.PORT}"
             }
             CompanionService.STATUS_FAILED -> {
