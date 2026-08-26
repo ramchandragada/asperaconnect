@@ -1,15 +1,21 @@
-Aspera Connect — Recents, Favorites, logo, light theme
-======================================================
+Aspera Connect — light themes + Favorites/Recents
+=================================================
 
-Desktop (Linux x64):
+Phone APK 0.3.4 (light theme + hang up):
+  AsperaConnect-0.3.4.apk
+
+Desktop (Favorites / Recents / logo):
   aspera-connect-linux-x64
-  aspera-connect_0.1.0-beta.1_amd64.deb
 
-Phone (Hang up):
-  AsperaConnect-0.3.3.apk
+Favorites & Recents are DESKTOP-only. Update the PC binary to see them.
+Update the phone APK for the light companion UI.
 
-Install desktop:
+Desktop:
   curl -L -o ~/.local/bin/aspera-connect \
     "https://raw.githubusercontent.com/ramchandragada/asperaconnect/cursor/phone-contacts-sync-5b4f/dist/release/aspera-connect-linux-x64"
   chmod +x ~/.local/bin/aspera-connect
-  ~/.local/bin/aspera-connect
+
+Phone:
+  curl -L -o /tmp/AsperaConnect-0.3.4.apk \
+    "https://raw.githubusercontent.com/ramchandragada/asperaconnect/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-0.3.4.apk"
+  adb install -r /tmp/AsperaConnect-0.3.4.apk

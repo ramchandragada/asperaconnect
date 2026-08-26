@@ -1,14 +1,14 @@
-Aspera Connect companion — install on phone
-===========================================
+Aspera Connect companion — phone install
+========================================
 
-Version: 0.3.3 (Hang up from PC + contacts)
+Version: 0.3.4 (light theme + hang up)
 
-1) Download AsperaConnect-0.3.3.apk from this folder / GitHub branch.
-2) On phone: enable Install unknown apps for your browser/Files.
-3) Open the APK → Install → Open Aspera Connect.
-4) Allow: Phone, Answer phone calls, Contacts, Notifications.
-5) Tap Start for calls — note the IP.
-6) On PC: Connect for phone calls, then Call / Hang up from Contacts.
+Favorites & Recents are on the DESKTOP app only — update the PC binary
+for those. Phone update is for light theme + hang-up.
 
-adb (optional):
-  adb install -r AsperaConnect-0.3.3.apk
+  curl -L -o /tmp/AsperaConnect-0.3.4.apk \
+    "https://raw.githubusercontent.com/ramchandragada/asperaconnect/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-0.3.4.apk"
+  adb install -r /tmp/AsperaConnect-0.3.4.apk
+
+Open app → allow Phone, Answer phone calls, Contacts → Start for calls.
+Confirm version shows v0.3.4.

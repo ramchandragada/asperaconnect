@@ -66,7 +66,7 @@ class MainActivity : ComponentActivity() {
             val p = packageManager.getPackageInfo(packageName, 0)
             "v${p.versionName}"
         } catch (_: Exception) {
-            "v0.3.3"
+            "v0.3.4"
         }
 
         refreshIp()
@@ -147,7 +147,7 @@ class MainActivity : ComponentActivity() {
             CompanionService.STATUS_FAILED -> {
                 linkBanner.setBackgroundResource(R.drawable.bg_status_bad)
                 linkPill.setBackgroundResource(R.drawable.bg_pill_bad)
-                linkPill.setTextColor(ContextCompat.getColor(this, android.R.color.white))
+                linkPill.setTextColor(ContextCompat.getColor(this, R.color.danger_ink))
                 linkPill.text = "Failed"
                 linkTitle.setTextColor(ContextCompat.getColor(this, R.color.danger))
                 linkTitle.text = getString(R.string.status_failed_title)
