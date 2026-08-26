@@ -196,7 +196,7 @@
                 android:gravity="center"
                 android:textColor="@color/muted"
                 android:textSize="11sp"
-                android:text="v0.3.2" />
+                android:text="v0.3.3" />
         </LinearLayout>
     </ScrollView>
 </FrameLayout>

@@ -1,12 +1,14 @@
-Sideload AsperaConnect-0.3.2.apk
+Aspera Connect companion — install on phone
+===========================================
 
-On the PC:
-  cd ~/Downloads
-  curl -L -o AsperaConnect-0.3.2.apk \
-    "https://github.com/ramchandragada/asperaconnect/raw/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-0.3.2.apk"
+Version: 0.3.3 (Hang up from PC + contacts)
 
-  # USB debugging on:
-  adb uninstall com.asperaconnect.companion
-  adb install -r AsperaConnect-0.3.2.apk
+1) Download AsperaConnect-0.3.3.apk from this folder / GitHub branch.
+2) On phone: enable Install unknown apps for your browser/Files.
+3) Open the APK → Install → Open Aspera Connect.
+4) Allow: Phone, Answer phone calls, Contacts, Notifications.
+5) Tap Start for calls — note the IP.
+6) On PC: Connect for phone calls, then Call / Hang up from Contacts.
 
-Or copy the APK to the phone and open it. App bottom must show v0.3.2.
+adb (optional):
+  adb install -r AsperaConnect-0.3.3.apk

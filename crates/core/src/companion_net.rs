@@ -137,6 +137,53 @@ pub async fn companion_place_call(
     }
 }
 
+/// One-shot: hello + endCall on the companion.
+pub async fn companion_end_call(
+    host: &str,
+    port: u16,
+    pin: Option<&str>,
+) -> Result<String, AsperaError> {
+    let addr = format!("{host}:{port}");
+    let stream = TcpStream::connect(&addr)
+        .await
+        .map_err(|e| AsperaError::Message(format!(
+            "companion unreachable at {addr}: {e}. On the phone open Aspera Connect → Start for calls."
+        )))?;
+    let stream = complete_hello(stream, pin, Some("Hang up")).await?;
+    let (reader, mut writer) = stream.into_split();
+    let mut reader = BufReader::new(reader);
+
+    writer
+        .write_all(b"{\"type\":\"endCall\"}\n")
+        .await
+        .map_err(|e| AsperaError::Message(e.to_string()))?;
+
+    let mut line = String::new();
+    reader
+        .read_line(&mut line)
+        .await
+        .map_err(|e| AsperaError::Message(e.to_string()))?;
+    let ack: serde_json::Value = serde_json::from_str(line.trim())
+        .map_err(|e| AsperaError::Message(format!("bad endCallAck: {e}")))?;
+    if ack.get("type").and_then(|v| v.as_str()) != Some("endCallAck") {
+        return Err(AsperaError::Message(format!(
+            "unexpected companion reply: {}",
+            line.trim()
+        )));
+    }
+    let ok = ack.get("ok").and_then(|v| v.as_bool()).unwrap_or(false);
+    let message = ack
+        .get("message")
+        .and_then(|v| v.as_str())
+        .unwrap_or(if ok { "Call ended" } else { "Hang up failed" })
+        .to_string();
+    if ok {
+        Ok(message)
+    } else {
+        Err(AsperaError::Message(message))
+    }
+}
+
 /// One-shot: hello + listContacts on the companion.
 pub async fn companion_list_contacts(
     host: &str,

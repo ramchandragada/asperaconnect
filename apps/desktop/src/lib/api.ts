@@ -147,6 +147,8 @@ export const api = {
       host: args.host ?? null,
       direct: args.direct ?? true,
     }),
+  companionEndCall: (host?: string | null) =>
+    invoke<CommandResult<string>>("companion_end_call", { host: host ?? null }),
   companionStartMirror: (host?: string | null) =>
     invoke<
       CommandResult<{ host: string; port: number; width: number; height: number; codec: string }>

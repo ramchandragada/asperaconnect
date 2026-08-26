@@ -1,20 +1,23 @@
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Source+Sans+3:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap");
 @import "tailwindcss";
 
 :root {
-  --bg0: #0c1210;
-  --bg1: #121a17;
-  --bg2: #1a2621;
-  --ink: #e8f0eb;
-  --muted: #9bb0a4;
-  --accent: #3ecf8e;
-  --accent-2: #f0b429;
-  --danger: #ff6b6b;
-  --line: rgba(232, 240, 235, 0.08);
-  --glow: rgba(62, 207, 142, 0.18);
+  --bg0: #f3f6fb;
+  --bg1: #e8eef7;
+  --bg2: #ffffff;
+  --ink: #0f172a;
+  --muted: #5b6b7c;
+  --accent: #0b6bcb;
+  --accent-soft: #e8f1fb;
+  --accent-2: #0f766e;
+  --danger: #dc2626;
+  --danger-soft: #fef2f2;
+  --line: rgba(15, 23, 42, 0.08);
+  --glow: rgba(11, 107, 203, 0.14);
+  --shadow: 0 10px 40px rgba(15, 23, 42, 0.06);
   --font-display: "Fraunces", Georgia, serif;
-  --font-body: "Source Sans 3", "Segoe UI", sans-serif;
-  color-scheme: dark;
+  --font-body: "Outfit", "Segoe UI", sans-serif;
+  color-scheme: light;
 }
 
 * {
@@ -32,9 +35,11 @@ body {
   font-family: var(--font-body);
   color: var(--ink);
   background:
-    radial-gradient(1200px 600px at 10% -10%, var(--glow), transparent 55%),
-    radial-gradient(900px 500px at 100% 0%, rgba(240, 180, 41, 0.08), transparent 50%),
-    linear-gradient(160deg, var(--bg0), var(--bg1) 45%, #0e1613);
+    radial-gradient(900px 520px at 0% -5%, rgba(11, 107, 203, 0.12), transparent 55%),
+    radial-gradient(800px 480px at 100% 0%, rgba(15, 118, 110, 0.08), transparent 50%),
+    radial-gradient(700px 400px at 70% 110%, rgba(11, 107, 203, 0.06), transparent 45%),
+    linear-gradient(165deg, #f7f9fc 0%, var(--bg0) 42%, #eef3f9 100%);
+  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -52,16 +57,40 @@ textarea {
   min-height: 0;
 }
 
+.sidebar {
+  border-right: 1px solid var(--line);
+  padding: 1.25rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.72)),
+    linear-gradient(160deg, #f8fbff, #eef4fb);
+  backdrop-filter: blur(12px);
+}
+
+.sidebar-tagline {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
 .brand {
   font-family: var(--font-display);
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+  background: linear-gradient(120deg, var(--ink) 20%, #1e3a5f 70%, var(--accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .panel {
-  background: color-mix(in srgb, var(--bg2) 88%, transparent);
+  background: color-mix(in srgb, var(--bg2) 92%, transparent);
   border: 1px solid var(--line);
   border-radius: 18px;
+  box-shadow: var(--shadow);
   backdrop-filter: blur(10px);
 }
 
@@ -72,43 +101,72 @@ textarea {
   border-radius: 12px;
   padding: 0.65rem 1rem;
   cursor: pointer;
-  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .btn:hover {
-  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
   transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(11, 107, 203, 0.1);
 }
 
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
+  box-shadow: none;
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #2bb673, var(--accent));
-  color: #062016;
+  background: linear-gradient(135deg, #0a5fb8, var(--accent) 55%, #1580e8);
+  color: #fff;
   border-color: transparent;
   font-weight: 700;
+  box-shadow: 0 8px 20px rgba(11, 107, 203, 0.22);
+}
+
+.btn-primary:hover {
+  border-color: transparent;
+  box-shadow: 0 10px 24px rgba(11, 107, 203, 0.28);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #c81e1e, var(--danger));
+  color: #fff;
+  border-color: transparent;
+  font-weight: 700;
+  box-shadow: 0 8px 18px rgba(220, 38, 38, 0.2);
+}
+
+.btn-danger:hover {
+  border-color: transparent;
+  box-shadow: 0 10px 22px rgba(220, 38, 38, 0.28);
 }
 
 .btn-ghost {
   background: transparent;
+  box-shadow: none;
 }
 
 .field {
   width: 100%;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(255, 255, 255, 0.9);
   color: var(--ink);
   padding: 0.7rem 0.85rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .field:focus {
-  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
-  outline-offset: 1px;
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .nav-item {
@@ -123,16 +181,24 @@ textarea {
   border-radius: 12px;
   padding: 0.7rem 0.85rem;
   cursor: pointer;
+  font-weight: 500;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
 .nav-item[data-active="true"] {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  background: linear-gradient(135deg, var(--accent-soft), rgba(255, 255, 255, 0.7));
   color: var(--ink);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .nav-item:hover {
   color: var(--ink);
-  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+}
+
+.status-toast {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .status-dot {
@@ -143,12 +209,12 @@ textarea {
 }
 
 .status-dot-ok {
-  background: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+  background: var(--accent-2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-2) 25%, transparent);
 }
 
 .status-dot-warn {
-  background: var(--accent-2);
+  background: #d97706;
 }
 
 .nav-badge {
@@ -163,18 +229,18 @@ textarea {
 }
 
 .nav-badge-ok {
-  color: #062816;
+  color: #fff;
   background: var(--accent);
 }
 
 .nav-badge-warn {
-  color: #2a1c00;
-  background: var(--accent-2);
+  color: #fff;
+  background: #d97706;
 }
 
 .nav-badge-bad {
   color: #fff;
-  background: color-mix(in srgb, var(--danger) 85%, #400);
+  background: color-mix(in srgb, var(--danger) 90%, #7f1d1d);
 }
 
 .easy-status {
@@ -195,26 +261,26 @@ textarea {
 }
 
 .easy-status-ok {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
-  background: color-mix(in srgb, var(--accent) 12%, var(--bg2));
+  border-color: color-mix(in srgb, var(--accent-2) 35%, var(--line));
+  background: color-mix(in srgb, var(--accent-2) 8%, var(--bg2));
 }
 
 .easy-status-ok .easy-status-title {
-  color: var(--accent);
-}
-
-.easy-status-warn {
-  border-color: color-mix(in srgb, var(--accent-2) 45%, var(--line));
-  background: color-mix(in srgb, var(--accent-2) 10%, var(--bg2));
-}
-
-.easy-status-warn .easy-status-title {
   color: var(--accent-2);
 }
 
+.easy-status-warn {
+  border-color: color-mix(in srgb, #d97706 40%, var(--line));
+  background: color-mix(in srgb, #d97706 8%, var(--bg2));
+}
+
+.easy-status-warn .easy-status-title {
+  color: #b45309;
+}
+
 .easy-status-bad {
-  border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
-  background: color-mix(in srgb, var(--danger) 10%, var(--bg2));
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--line));
+  background: var(--danger-soft);
 }
 
 .easy-status-bad .easy-status-title {
@@ -229,6 +295,14 @@ textarea {
   padding: 0.95rem 1rem;
   border: 1px solid var(--line);
   animation: call-banner-in 0.25s ease;
+  box-shadow: var(--shadow);
+}
+
+.call-banner-actions {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .call-banner-pulse {
@@ -259,8 +333,8 @@ textarea {
 }
 
 .call-banner-dialing {
-  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
-  background: color-mix(in srgb, var(--accent) 14%, var(--bg2));
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+  background: linear-gradient(135deg, var(--accent-soft), #fff);
 }
 
 .call-banner-dialing .call-banner-title {
@@ -268,23 +342,38 @@ textarea {
 }
 
 .call-banner-sent {
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
-  background: color-mix(in srgb, var(--accent) 10%, var(--bg2));
+  border-color: color-mix(in srgb, var(--accent-2) 35%, var(--line));
+  background: linear-gradient(135deg, #ecfdf8, #fff);
 }
 
 .call-banner-sent .call-banner-title {
-  color: var(--accent);
+  color: var(--accent-2);
 }
 
 .call-banner-sent .call-banner-pulse {
   animation: none;
-  background: var(--accent);
+  background: var(--accent-2);
+  box-shadow: none;
+}
+
+.call-banner-ended {
+  border-color: color-mix(in srgb, var(--muted) 30%, var(--line));
+  background: linear-gradient(135deg, #f8fafc, #fff);
+}
+
+.call-banner-ended .call-banner-title {
+  color: var(--ink);
+}
+
+.call-banner-ended .call-banner-pulse {
+  animation: none;
+  background: var(--muted);
   box-shadow: none;
 }
 
 .call-banner-failed {
-  border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
-  background: color-mix(in srgb, var(--danger) 12%, var(--bg2));
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--line));
+  background: var(--danger-soft);
 }
 
 .call-banner-failed .call-banner-title {
@@ -298,7 +387,7 @@ textarea {
 }
 
 .contact-row-calling {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
   border-radius: 10px;
 }
 
@@ -377,7 +466,7 @@ textarea {
 
 .drop-zone.drag-over {
   border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
   color: var(--ink);
 }
 
@@ -394,7 +483,7 @@ textarea {
 
 .phone-chassis {
   position: relative;
-  filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.45));
+  filter: drop-shadow(0 18px 28px rgba(15, 23, 42, 0.18));
 }
 
 .phone-frame {
@@ -422,7 +511,6 @@ textarea {
 
 .phone-frame.skin-oneplus-8t {
   border-radius: 20px;
-  /* Flat-ish 8T silhouette */
   background:
     linear-gradient(90deg, rgba(255, 255, 255, 0.04), transparent 12%),
     linear-gradient(160deg, #222428, #0a0b0c 48%, #000);
@@ -453,9 +541,9 @@ textarea {
 .phone-wallpaper[data-skin="oneplus-8t"],
 .phone-wallpaper[data-skin="oneplus"] {
   background:
-    radial-gradient(90% 60% at 50% 0%, rgba(235, 0, 27, 0.35), transparent 55%),
+    radial-gradient(90% 60% at 50% 0%, rgba(11, 107, 203, 0.35), transparent 55%),
     radial-gradient(80% 70% at 80% 100%, rgba(40, 40, 45, 0.9), transparent 50%),
-    linear-gradient(165deg, #1a1214, #0a0a0b 55%, #050505);
+    linear-gradient(165deg, #121820, #0a0a0b 55%, #050505);
 }
 
 .phone-skin-id {
@@ -520,9 +608,9 @@ textarea {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(120% 80% at 20% 10%, rgba(62, 207, 142, 0.35), transparent 50%),
-    radial-gradient(90% 70% at 90% 90%, rgba(240, 180, 41, 0.22), transparent 45%),
-    linear-gradient(165deg, #14201a, #0b1210 60%, #06100c);
+    radial-gradient(120% 80% at 20% 10%, rgba(11, 107, 203, 0.35), transparent 50%),
+    radial-gradient(90% 70% at 90% 90%, rgba(15, 118, 110, 0.22), transparent 45%),
+    linear-gradient(165deg, #14202a, #0b1218 60%, #061018);
   transition: filter 0.3s ease, opacity 0.3s ease;
 }
 
@@ -635,20 +723,21 @@ textarea {
 }
 
 .photo-card {
-  background: color-mix(in srgb, var(--bg2) 80%, transparent);
+  background: color-mix(in srgb, var(--bg2) 90%, transparent);
   border: 1px solid var(--line);
   border-radius: 14px;
   overflow: hidden;
   display: grid;
   gap: 0.45rem;
   padding-bottom: 0.55rem;
+  box-shadow: var(--shadow);
 }
 
 .photo-thumb {
   margin: 0;
   padding: 0;
   border: none;
-  background: #0a0f0d;
+  background: #e8eef7;
   aspect-ratio: 1;
   cursor: pointer;
   display: grid;
@@ -693,10 +782,11 @@ textarea {
   position: fixed;
   inset: 0;
   z-index: 80;
-  background: rgba(0, 0, 0, 0.72);
+  background: rgba(15, 23, 42, 0.55);
   display: grid;
   place-items: center;
   padding: 1.25rem;
+  backdrop-filter: blur(6px);
 }
 
 .photo-lightbox-inner {
@@ -704,10 +794,11 @@ textarea {
   max-height: 90vh;
   display: grid;
   gap: 0.75rem;
-  background: var(--bg1);
+  background: var(--bg2);
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 0.75rem;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
 }
 
 .photo-lightbox-inner img {

@@ -66,7 +66,7 @@ class MainActivity : ComponentActivity() {
             val p = packageManager.getPackageInfo(packageName, 0)
             "v${p.versionName}"
         } catch (_: Exception) {
-            "v0.3.2"
+            "v0.3.3"
         }
 
         refreshIp()
@@ -183,6 +183,12 @@ class MainActivity : ComponentActivity() {
             PackageManager.PERMISSION_GRANTED
         ) {
             needed.add(Manifest.permission.CALL_PHONE)
+        }
+        if (Build.VERSION.SDK_INT >= 26 &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ANSWER_PHONE_CALLS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            needed.add(Manifest.permission.ANSWER_PHONE_CALLS)
         }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) !=
             PackageManager.PERMISSION_GRANTED

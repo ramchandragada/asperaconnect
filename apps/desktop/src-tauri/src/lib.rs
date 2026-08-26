@@ -648,6 +648,29 @@ async fn companion_place_call(
 }
 
 #[tauri::command]
+async fn companion_end_call(host: Option<String>) -> CommandResult<String> {
+    let cfg = AppConfig::load();
+    let host = host
+        .or(cfg.companion_host.clone())
+        .unwrap_or_default();
+    if host.is_empty() {
+        return CommandResult::err(AsperaError::Message(
+            "Connect to the phone in Phone calls first".into(),
+        ));
+    }
+    match aspera_core::companion_net::companion_end_call(
+        &host,
+        aspera_core::companion::DEFAULT_COMPANION_PORT,
+        cfg.companion_pin.as_deref(),
+    )
+    .await
+    {
+        Ok(msg) => CommandResult::ok(msg),
+        Err(e) => CommandResult::err(e),
+    }
+}
+
+#[tauri::command]
 async fn sync_phone_contacts(host: Option<String>) -> CommandResult<aspera_core::ContactsCache> {
     let cfg = AppConfig::load();
     let host = host
@@ -1351,6 +1374,7 @@ pub fn run() {
             compose_sms,
             place_call,
             companion_place_call,
+            companion_end_call,
             sync_phone_contacts,
             load_cached_contacts,
             companion_start_mirror,

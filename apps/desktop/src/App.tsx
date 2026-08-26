@@ -31,7 +31,7 @@ export default function App() {
   const [activeCall, setActiveCall] = useState<{
     name: string;
     number: string;
-    phase: "dialing" | "sent" | "failed";
+    phase: "dialing" | "sent" | "ended" | "failed";
     detail?: string;
   } | null>(null);
 
@@ -85,90 +85,7 @@ export default function App() {
     return () => window.clearInterval(id);
   }, [view]);
 
-  useEffect(() => {
-    let unlistenCall: (() => void) | undefined;
-    let unlistenClip: (() => void) | undefined;
-    void listen<string>("aspera://call", (ev) => {
-      setView("companion");
-      void (async () => {
-        const res = await api.placeCall({
-          number: ev.payload,
-          serial: null,
-          direct: true,
-        });
-        if (!res.ok) setError(res.error ?? null);
-        else setStatusMsg(res.data ?? `Calling ${ev.payload}`);
-      })();
-    }).then((fn) => {
-      unlistenCall = fn;
-    });
-    void listen("tray://call-clipboard", () => {
-      void (async () => {
-        try {
-          const text = await navigator.clipboard.readText();
-          const parsed = await api.parseCallUri(text.trim());
-          if (!parsed.ok || !parsed.data) {
-            setError(
-              parsed.error ?? {
-                code: "clipboard",
-                title: "No number",
-                message: "Copy a phone number first, then use Call from clipboard.",
-                hint: null,
-              },
-            );
-            return;
-          }
-          setView("companion");
-          const res = await api.placeCall({
-            number: parsed.data,
-            serial: null,
-            direct: true,
-          });
-          if (!res.ok) setError(res.error ?? null);
-          else setStatusMsg(res.data ?? `Calling ${parsed.data}`);
-        } catch {
-          setError({
-            code: "clipboard",
-            title: "Clipboard read failed",
-            message: "Allow clipboard access or paste the number in Hub instead.",
-            hint: null,
-          });
-        }
-      })();
-    }).then((fn) => {
-      unlistenClip = fn;
-    });
-    void api.takePendingCall().then((n) => {
-      if (!n) return;
-      setView("companion");
-      void api.placeCall({ number: n, serial: null, direct: true }).then((res) => {
-        if (!res.ok) setError(res.error ?? null);
-        else setStatusMsg(res.data ?? `Calling ${n}`);
-      });
-    });
-    return () => {
-      unlistenCall?.();
-      unlistenClip?.();
-    };
-  }, []);
-
-  async function persistConfig(next: AppConfig) {
-    await api.saveConfig(next);
-    setConfig(next);
-  }
-
-  async function syncContacts(host?: string) {
-    setBusy(true);
-    setError(null);
-    const res = await api.syncPhoneContacts(host ?? (companionHost.trim() || null));
-    setBusy(false);
-    if (!res.ok) return setError(res.error ?? null);
-    setContactsCache(res.data ?? { contacts: [] });
-    const n = res.data?.contacts?.length ?? 0;
-    setStatusMsg(`Synced ${n} contact${n === 1 ? "" : "s"} from phone`);
-  }
-
-  async function callNumber(number: string, name?: string) {
+  const callNumber = useCallback(async (number: string, name?: string) => {
     const label = name?.trim() || number;
     setBusy(true);
     setError(null);
@@ -193,9 +110,106 @@ export default function App() {
       detail: res.data ?? "Ringing on your phone",
     });
     setStatusMsg(null);
-    window.setTimeout(() => {
-      setActiveCall((prev) => (prev?.phase === "sent" ? null : prev));
-    }, 8000);
+  }, []);
+
+  useEffect(() => {
+    let unlistenCall: (() => void) | undefined;
+    let unlistenClip: (() => void) | undefined;
+    void listen<string>("aspera://call", (ev) => {
+      setView("companion");
+      void callNumber(ev.payload);
+    }).then((fn) => {
+      unlistenCall = fn;
+    });
+    void listen("tray://call-clipboard", () => {
+      void (async () => {
+        try {
+          const text = await navigator.clipboard.readText();
+          const parsed = await api.parseCallUri(text.trim());
+          if (!parsed.ok || !parsed.data) {
+            setError(
+              parsed.error ?? {
+                code: "clipboard",
+                title: "No number",
+                message: "Copy a phone number first, then use Call from clipboard.",
+                hint: null,
+              },
+            );
+            return;
+          }
+          setView("companion");
+          await callNumber(parsed.data);
+        } catch {
+          setError({
+            code: "clipboard",
+            title: "Clipboard read failed",
+            message: "Allow clipboard access or paste the number in Hub instead.",
+            hint: null,
+          });
+        }
+      })();
+    }).then((fn) => {
+      unlistenClip = fn;
+    });
+    void api.takePendingCall().then((n) => {
+      if (!n) return;
+      setView("companion");
+      void callNumber(n);
+    });
+    return () => {
+      unlistenCall?.();
+      unlistenClip?.();
+    };
+  }, [callNumber]);
+
+  async function persistConfig(next: AppConfig) {
+    await api.saveConfig(next);
+    setConfig(next);
+  }
+
+  async function syncContacts(host?: string) {
+    setBusy(true);
+    setError(null);
+    const res = await api.syncPhoneContacts(host ?? (companionHost.trim() || null));
+    setBusy(false);
+    if (!res.ok) return setError(res.error ?? null);
+    setContactsCache(res.data ?? { contacts: [] });
+    const n = res.data?.contacts?.length ?? 0;
+    setStatusMsg(`Synced ${n} contact${n === 1 ? "" : "s"} from phone`);
+  }
+
+  async function hangUp() {
+    setBusy(true);
+    setError(null);
+    const res = await api.companionEndCall(companionHost.trim() || null);
+    setBusy(false);
+    if (!res.ok) {
+      if (activeCall) {
+        setActiveCall({
+          ...activeCall,
+          phase: "failed",
+          detail: res.error?.message ?? "Hang up failed",
+        });
+      }
+      setError(res.error ?? null);
+      return;
+    }
+    setActiveCall((prev) =>
+      prev
+        ? {
+            name: prev.name,
+            number: prev.number,
+            phase: "ended",
+            detail: res.data ?? "Call ended",
+          }
+        : {
+            name: "Call",
+            number: "",
+            phase: "ended",
+            detail: res.data ?? "Call ended",
+          },
+    );
+    window.setTimeout(() => setActiveCall(null), 2500);
   }
 
   if (!config) {
@@ -227,22 +241,13 @@ export default function App() {
           : t(locale, "help");
 
   return (
-    <div className="app-shell" style={{ display: "grid", gridTemplateColumns: "220px 1fr", height: "100%" }}>
-      <aside
-        style={{
-          borderRight: "1px solid var(--line)",
-          padding: "1.25rem 1rem",
-          display: "flex",
-          flexDirection: "column",
-          gap: "0.35rem",
-          background: "rgba(0,0,0,0.18)",
-        }}
-      >
+    <div className="app-shell">
+      <aside className="sidebar">
         <div style={{ padding: "0.35rem 0.85rem 1rem" }}>
           <div className="brand" style={{ fontSize: "1.35rem" }}>
             {t(locale, "brand")}
           </div>
-          <div style={{ color: "var(--muted)", fontSize: "0.85rem" }}>Click-to-call</div>
+          <div className="sidebar-tagline">Click-to-call</div>
         </div>
         <Nav
           icon={<Smartphone size={18} />}
@@ -305,10 +310,59 @@ export default function App() {
         ) : null}
         {statusMsg ? (
           <div
-            className="panel fade-in"
-            style={{ padding: "0.85rem 1rem", marginBottom: "1rem", color: "var(--accent)" }}
+            className="panel fade-in status-toast"
+            style={{ padding: "0.85rem 1rem", marginBottom: "1rem" }}
           >
             {statusMsg}
+          </div>
+        ) : null}
+
+        {activeCall ? (
+          <div
+            className={`call-banner call-banner-${activeCall.phase} fade-in`}
+            role="status"
+            aria-live="polite"
+            style={{ marginBottom: "1rem", maxWidth: 640 }}
+          >
+            <div className="call-banner-pulse" aria-hidden />
+            <div className="call-banner-body">
+              <div className="call-banner-title">
+                {activeCall.phase === "dialing"
+                  ? "Calling…"
+                  : activeCall.phase === "sent"
+                    ? "On your phone"
+                    : activeCall.phase === "ended"
+                      ? "Call ended"
+                      : "Call failed"}
+              </div>
+              <div className="call-banner-detail">
+                <strong>{activeCall.name}</strong>
+                {activeCall.name !== activeCall.number && activeCall.number ? (
+                  <>
+                    {" "}
+                    · <code>{activeCall.number}</code>
+                  </>
+                ) : null}
+                {activeCall.detail ? (
+                  <>
+                    <br />
+                    <span>{activeCall.detail}</span>
+                  </>
+                ) : null}
+              </div>
+            </div>
+            <div className="call-banner-actions">
+              {activeCall.phase === "dialing" || activeCall.phase === "sent" ? (
+                <button className="btn btn-danger" disabled={busy} onClick={() => void hangUp()}>
+                  Hang up
+                </button>
+              ) : null}
+              {activeCall.phase !== "dialing" ? (
+                <button className="btn btn-ghost" onClick={() => setActiveCall(null)}>
+                  Dismiss
+                </button>
+              ) : null}
+            </div>
           </div>
         ) : null}
 
@@ -446,45 +500,6 @@ export default function App() {
 
         {view === "contacts" && (
           <div className="panel fade-in" style={{ padding: "1.25rem", display: "grid", gap: "0.85rem", maxWidth: 640 }}>
-            {activeCall ? (
-              <div
-                className={`call-banner call-banner-${activeCall.phase}`}
-                role="status"
-                aria-live="polite"
-              >
-                <div className="call-banner-pulse" aria-hidden />
-                <div className="call-banner-body">
-                  <div className="call-banner-title">
-                    {activeCall.phase === "dialing"
-                      ? "Calling…"
-                      : activeCall.phase === "sent"
-                        ? "Call sent to phone"
-                        : "Call failed"}
-                  </div>
-                  <div className="call-banner-detail">
-                    <strong>{activeCall.name}</strong>
-                    {activeCall.name !== activeCall.number ? (
-                      <>
-                        {" "}
-                        · <code>{activeCall.number}</code>
-                      </>
-                    ) : null}
-                    {activeCall.detail ? (
-                      <>
-                        <br />
-                        <span>{activeCall.detail}</span>
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-                {activeCall.phase !== "dialing" ? (
-                  <button className="btn btn-ghost" onClick={() => setActiveCall(null)}>
-                    Dismiss
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
-
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
               <input
                 className="field"

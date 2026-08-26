@@ -278,6 +278,7 @@ class CompanionService : Service() {
                                 "capabilities",
                                 JSONObject()
                                     .put("placeCall", true)
+                                    .put("endCall", true)
                                     .put("contacts", true)
                                     .put("mirror", false)
                                     .put("input", false),
@@ -308,6 +309,20 @@ class CompanionService : Service() {
                         val result = placeCall(number, direct)
                         val ack = JSONObject()
                             .put("type", "placeCallAck")
+                            .put("ok", result.first)
+                            .put("message", result.second)
+                        writer.write(ack.toString())
+                        writer.newLine()
+                        writer.flush()
+                    }
+                    "endCall" -> {
+                        if (!authed) {
+                            writeErr(writer, "not_authed")
+                            continue
+                        }
+                        val result = endCall()
+                        val ack = JSONObject()
+                            .put("type", "endCallAck")
                             .put("ok", result.first)
                             .put("message", result.second)
                         writer.write(ack.toString())
@@ -371,6 +386,34 @@ class CompanionService : Service() {
             writer.newLine()
             writer.flush()
         } catch (_: Exception) {
+        }
+    }
+
+    private fun endCall(): Pair<Boolean, String> {
+        return try {
+            if (Build.VERSION.SDK_INT < 28) {
+                return false to "Hang up needs Android 9+"
+            }
+            val tm = getSystemService(android.telecom.TelecomManager::class.java)
+            @Suppress("DEPRECATION")
+            val ended = tm.endCall()
+            if (ended) {
+                ensureForeground("Call ended from PC")
+                try {
+                    getSystemService(NotificationManager::class.java)
+                        .cancel(CALL_NOTIFICATION_ID)
+                } catch (_: Exception) {
+                }
+                true to "Call ended"
+            } else {
+                false to "No active call to end (or permission denied)"
+            }
+        } catch (e: SecurityException) {
+            Log.w(TAG, "endCall denied: ${e.message}")
+            false to "Allow Phone / Answer calls on the companion app, then try Hang up again"
+        } catch (e: Exception) {
+            Log.w(TAG, "endCall failed: ${e.message}")
+            false to (e.message ?: "Hang up failed")
         }
     }
 
