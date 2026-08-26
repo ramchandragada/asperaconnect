@@ -1,0 +1,12 @@
+Sideload AsperaConnect-0.3.2.apk
+
+On the PC:
+  cd ~/Downloads
+  curl -L -o AsperaConnect-0.3.2.apk \
+    "https://github.com/ramchandragada/asperaconnect/raw/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-0.3.2.apk"
+
+  # USB debugging on:
+  adb uninstall com.asperaconnect.companion
+  adb install -r AsperaConnect-0.3.2.apk
+
+Or copy the APK to the phone and open it. App bottom must show v0.3.2.
