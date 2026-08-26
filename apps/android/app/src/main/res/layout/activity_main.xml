@@ -145,19 +145,6 @@
                     android:visibility="gone" />
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/captureText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_sm"
-                android:fontFamily="sans-serif-medium"
-                android:gravity="center"
-                android:text="@string/capture_off"
-                android:textColor="@color/muted"
-                android:textSize="13sp"
-                android:visibility="gone" />
-
-            <!-- Hidden legacy fields kept for code compatibility -->
             <EditText
                 android:id="@+id/pinInput"
                 android:layout_width="match_parent"
@@ -172,46 +159,16 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/space_xl"
                 android:minHeight="72dp"
-                android:text="@string/option1_title" />
+                android:text="@string/listen_title" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
                 android:gravity="center"
-                android:text="@string/option1_sub"
+                android:text="@string/listen_sub"
                 android:textColor="@color/muted"
                 android:textSize="13sp" />
-
-            <Button
-                android:id="@+id/mirrorButton"
-                style="@style/Widget.Aspera.Button.Secondary"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_lg"
-                android:minHeight="72dp"
-                android:text="@string/option2_title" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:gravity="center"
-                android:text="@string/option2_sub"
-                android:textColor="@color/muted"
-                android:textSize="13sp" />
-
-            <Button
-                android:id="@+id/phonePermButton"
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:visibility="gone" />
-
-            <Button
-                android:id="@+id/accessibilityButton"
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:visibility="gone" />
 
             <Button
                 android:id="@+id/stopButton"

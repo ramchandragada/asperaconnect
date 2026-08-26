@@ -278,8 +278,8 @@ class CompanionService : Service() {
                                 "capabilities",
                                 JSONObject()
                                     .put("placeCall", true)
-                                    .put("mirror", true)
-                                    .put("input", true),
+                                    .put("mirror", false)
+                                    .put("input", false),
                             )
                             .put("reason", if (ok) JSONObject.NULL else "bad_pin")
                             .put("model", Build.MODEL)
@@ -318,61 +318,8 @@ class CompanionService : Service() {
                         writer.newLine()
                         writer.flush()
                     }
-                    "startMirror" -> {
-                        if (!authed) {
-                            writeErr(writer, "not_authed")
-                            continue
-                        }
-                        val dm = resources.displayMetrics
-                        var reason = "ok"
-                        val started = when {
-                            MirrorBridge.isStreaming() -> true
-                            MirrorBridge.hasProjection() -> {
-                                val ok = MirrorBridge.startStreaming(
-                                    dm.densityDpi,
-                                    dm.widthPixels,
-                                    dm.heightPixels,
-                                )
-                                if (!ok) reason = "stream_start_failed"
-                                ok
-                            }
-                            else -> {
-                                reason = "need_screen_capture"
-                                MirrorService.notifyNeedCapture(this@CompanionService)
-                                false
-                            }
-                        }
-                        val ack = JSONObject()
-                            .put("type", "mirrorReady")
-                            .put("ok", started)
-                            .put(
-                                "reason",
-                                if (started) JSONObject.NULL else reason,
-                            )
-                            .put("port", MirrorBridge.VIDEO_PORT)
-                            .put("codec", "h264")
-                            .put("width", MirrorBridge.width)
-                            .put("height", MirrorBridge.height)
-                            .put("captureReady", MirrorBridge.hasProjection())
-                        writer.write(ack.toString())
-                        writer.newLine()
-                        writer.flush()
-                        if (started) {
-                            ensureForeground("Easy mirror streaming on ${MirrorBridge.VIDEO_PORT}")
-                        }
-                    }
-                    "stopMirror" -> {
-                        MirrorBridge.stopStreaming()
-                        val ack = JSONObject()
-                            .put("type", "mirrorStopped")
-                            .put("ok", true)
-                        writer.write(ack.toString())
-                        writer.newLine()
-                        writer.flush()
-                        ensureForeground("Listening for PC — ${guessLocalIpv4() ?: "Wi‑Fi"}:$PORT")
-                    }
-                    "input" -> {
-                        if (authed) AsperaAccessibilityService.dispatch(msg)
+                    "startMirror", "stopMirror", "input" -> {
+                        if (authed) writeErr(writer, "mirror_removed")
                     }
                     "stop" -> break
                 }
@@ -534,7 +481,6 @@ class CompanionService : Service() {
         const val STATUS_FAILED = "failed"
         const val STATUS_STOPPED = "stopped"
         const val PORT = 17891
-        const val VIDEO_PORT = MirrorBridge.VIDEO_PORT
         const val PROTOCOL = 1
         const val SERVICE_TYPE = "_aspera-connect._tcp."
         private const val NOTIFICATION_ID = 41

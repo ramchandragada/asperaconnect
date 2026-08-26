@@ -95,7 +95,7 @@ pub async fn companion_place_call(
     let stream = TcpStream::connect(&addr)
         .await
         .map_err(|e| AsperaError::Message(format!(
-            "companion unreachable at {addr}: {e}. On the phone open Aspera Connect → Listen for PC."
+            "companion unreachable at {addr}: {e}. On the phone open Aspera Connect → Start for calls."
         )))?;
     let stream = complete_hello(stream, pin, Some("Hub / click-to-call")).await?;
     let (reader, mut writer) = stream.into_split();
@@ -147,72 +147,15 @@ pub struct EasyMirrorReady {
     pub codec: String,
 }
 
-/// One-shot: hello + startMirror. Phone must already have granted screen capture.
+/// Easy screen mirror removed — companion is call-only.
 pub async fn companion_start_mirror(
-    host: &str,
-    port: u16,
-    pin: Option<&str>,
+    _host: &str,
+    _port: u16,
+    _pin: Option<&str>,
 ) -> Result<EasyMirrorReady, AsperaError> {
-    let addr = format!("{host}:{port}");
-    let stream = TcpStream::connect(&addr)
-        .await
-        .map_err(|e| AsperaError::Message(format!(
-            "companion unreachable at {addr}: {e}. On the phone tap Listen for PC."
-        )))?;
-    let stream = complete_hello(stream, pin, Some("Easy mirror")).await?;
-    let (reader, mut writer) = stream.into_split();
-    let mut reader = BufReader::new(reader);
-
-    let req = json!({ "type": "startMirror" });
-    writer
-        .write_all(format!("{req}\n").as_bytes())
-        .await
-        .map_err(|e| AsperaError::Message(e.to_string()))?;
-
-    let mut line = String::new();
-    reader
-        .read_line(&mut line)
-        .await
-        .map_err(|e| AsperaError::Message(e.to_string()))?;
-    let ack: serde_json::Value = serde_json::from_str(line.trim())
-        .map_err(|e| AsperaError::Message(format!("bad mirrorReady: {e}")))?;
-    if ack.get("type").and_then(|v| v.as_str()) != Some("mirrorReady") {
-        return Err(AsperaError::Message(format!(
-            "unexpected companion reply: {}",
-            line.trim()
-        )));
-    }
-    let ok = ack.get("ok").and_then(|v| v.as_bool()).unwrap_or(false);
-    if !ok {
-        let reason = ack
-            .get("reason")
-            .and_then(|v| v.as_str())
-            .unwrap_or("mirror_failed");
-        let hint = match reason {
-            "need_screen_capture" => {
-                "On the phone: tap “3. Allow screen capture”, accept the Android cast dialog, wait until it says Screen capture: ON, then try again."
-            }
-            "stream_start_failed" => {
-                "Phone got capture permission but could not start the video stream. Stop on phone, tap step 3 again, then retry."
-            }
-            _ => "Could not start Easy mirror on the phone.",
-        };
-        return Err(AsperaError::Message(format!("{hint} ({reason})")));
-    }
-    Ok(EasyMirrorReady {
-        host: host.to_string(),
-        port: ack
-            .get("port")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(17892) as u16,
-        width: ack.get("width").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
-        height: ack.get("height").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
-        codec: ack
-            .get("codec")
-            .and_then(|v| v.as_str())
-            .unwrap_or("h264")
-            .to_string(),
-    })
+    Err(AsperaError::Message(
+        "Screen mirror was removed. Use Easy mode for phone calls only.".into(),
+    ))
 }
 
 pub async fn companion_stop_mirror(
@@ -221,97 +164,37 @@ pub async fn companion_stop_mirror(
     pin: Option<&str>,
 ) -> Result<(), AsperaError> {
     let addr = format!("{host}:{port}");
-    let stream = TcpStream::connect(&addr)
-        .await
-        .map_err(|e| AsperaError::Message(e.to_string()))?;
-    let stream = complete_hello(stream, pin, Some("Easy mirror")).await?;
-    let (reader, mut writer) = stream.into_split();
-    let mut reader = BufReader::new(reader);
-    writer
-        .write_all(b"{\"type\":\"stopMirror\"}\n")
-        .await
-        .map_err(|e| AsperaError::Message(e.to_string()))?;
-    let mut line = String::new();
-    let _ = reader.read_line(&mut line).await;
-    Ok(())
-}
-
-/// Send a nav / tap input event (requires Accessibility on the phone for gestures).
-pub async fn companion_input(
-    host: &str,
-    port: u16,
-    pin: Option<&str>,
-    kind: &str,
-    x: Option<f32>,
-    y: Option<f32>,
-) -> Result<(), AsperaError> {
-    let addr = format!("{host}:{port}");
-    let stream = TcpStream::connect(&addr)
-        .await
-        .map_err(|e| AsperaError::Message(e.to_string()))?;
-    let stream = complete_hello(stream, pin, Some("Easy input")).await?;
+    let stream = match TcpStream::connect(&addr).await {
+        Ok(s) => s,
+        Err(_) => return Ok(()),
+    };
+    let stream = match complete_hello(stream, pin, Some("Easy")).await {
+        Ok(s) => s,
+        Err(_) => return Ok(()),
+    };
     let (_reader, mut writer) = stream.into_split();
-    let mut req = json!({ "type": "input", "kind": kind });
-    if let Some(xv) = x {
-        req["x"] = json!(xv);
-    }
-    if let Some(yv) = y {
-        req["y"] = json!(yv);
-    }
-    writer
-        .write_all(format!("{req}\n").as_bytes())
-        .await
-        .map_err(|e| AsperaError::Message(e.to_string()))?;
+    let _ = writer.write_all(b"{\"type\":\"stopMirror\"}\n").await;
     Ok(())
 }
 
-/// Spawn ffplay/mpv to show the Easy-mode H.264 TCP stream.
-pub fn spawn_easy_mirror_player(host: &str, port: u16) -> Result<std::process::Child, AsperaError> {
-    let url = format!("tcp://{host}:{port}");
-    if let Ok(ffplay) = which::which("ffplay") {
-        return std::process::Command::new(ffplay)
-            .args([
-                "-fflags",
-                "nobuffer",
-                "-flags",
-                "low_delay",
-                "-framedrop",
-                "-probesize",
-                "32",
-                "-analyzeduration",
-                "0",
-                "-sync",
-                "ext",
-                "-window_title",
-                "Aspera Connect — Easy mirror",
-                "-f",
-                "h264",
-                &url,
-            ])
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .spawn()
-            .map_err(|e| AsperaError::Message(format!("ffplay failed: {e}")));
-    }
-    if let Ok(mpv) = which::which("mpv") {
-        return std::process::Command::new(mpv)
-            .args([
-                "--no-cache",
-                "--untimed",
-                "--profile=low-latency",
-                "--title=Aspera Connect — Easy mirror",
-                &format!("--demuxer-lavf-format=h264"),
-                &url,
-            ])
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .spawn()
-            .map_err(|e| AsperaError::Message(format!("mpv failed: {e}")));
-    }
+/// Send a nav / tap input event (removed with Easy mirror).
+pub async fn companion_input(
+    _host: &str,
+    _port: u16,
+    _pin: Option<&str>,
+    _kind: &str,
+    _x: Option<f32>,
+    _y: Option<f32>,
+) -> Result<(), AsperaError> {
     Err(AsperaError::Message(
-        "Install ffplay (sudo apt install ffmpeg) or mpv to view Easy mode mirror.".into(),
+        "Screen mirror / remote input was removed. Use Easy mode for phone calls only.".into(),
+    ))
+}
+
+/// Easy mirror player stub — mirroring removed.
+pub fn spawn_easy_mirror_player(_host: &str, _port: u16) -> Result<std::process::Child, AsperaError> {
+    Err(AsperaError::Message(
+        "Screen mirror was removed. Use Easy mode for phone calls only.".into(),
     ))
 }
 

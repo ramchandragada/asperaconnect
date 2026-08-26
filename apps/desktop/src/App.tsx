@@ -55,7 +55,7 @@ export default function App() {
   const [mirrors, setMirrors] = useState<MirrorHandle[]>([]);
   const [error, setError] = useState<UserFacingError | null>(null);
   const [busy, setBusy] = useState(false);
-  const [view, setView] = useState<AppView>("home");
+  const [view, setView] = useState<AppView>("companion");
   const [kde, setKde] = useState<KdeStatus | null>(null);
   const [companion, setCompanion] = useState<CompanionSessionState | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
@@ -411,14 +411,6 @@ export default function App() {
           </div>
           <div style={{ color: "var(--muted)", fontSize: "0.85rem" }}>Linux ↔ Android</div>
         </div>
-        <Nav icon={<Home size={18} />} label={t(locale, "home")} active={view === "home"} onClick={() => setView("home")} />
-        <Nav icon={<LayoutGrid size={18} />} label="Apps" active={view === "apps"} onClick={() => { setView("apps"); void loadPhoneApps(); }} />
-        <Nav icon={<Bell size={18} />} label="Notifications" active={view === "notifications"} onClick={() => { setView("notifications"); void api.listNotifications().then(setNotifications); }} />
-        <Nav icon={<Wifi size={18} />} label={t(locale, "wireless")} active={view === "wireless"} onClick={() => setView("wireless")} />
-        <Nav icon={<FolderUp size={18} />} label={t(locale, "files")} active={view === "files"} onClick={() => setView("files")} />
-        <Nav icon={<Image size={18} />} label={t(locale, "photos")} active={view === "photos"} onClick={() => setView("photos")} />
-        <Nav icon={<Share2 size={18} />} label={t(locale, "share")} active={view === "share"} onClick={() => setView("share")} />
-        <Nav icon={<MessageSquare size={18} />} label={t(locale, "sms")} active={view === "sms"} onClick={() => { setView("sms"); void api.kdeStatus().then(setKde); }} />
         <Nav
           icon={<Smartphone size={18} />}
           label={t(locale, "companion")}
@@ -432,6 +424,14 @@ export default function App() {
                 : { text: "Off", tone: "bad" }
           }
         />
+        <Nav icon={<Home size={18} />} label={t(locale, "home")} active={view === "home"} onClick={() => setView("home")} />
+        <Nav icon={<LayoutGrid size={18} />} label="Apps" active={view === "apps"} onClick={() => { setView("apps"); void loadPhoneApps(); }} />
+        <Nav icon={<Bell size={18} />} label="Notifications" active={view === "notifications"} onClick={() => { setView("notifications"); void api.listNotifications().then(setNotifications); }} />
+        <Nav icon={<Wifi size={18} />} label={t(locale, "wireless")} active={view === "wireless"} onClick={() => setView("wireless")} />
+        <Nav icon={<FolderUp size={18} />} label={t(locale, "files")} active={view === "files"} onClick={() => setView("files")} />
+        <Nav icon={<Image size={18} />} label={t(locale, "photos")} active={view === "photos"} onClick={() => setView("photos")} />
+        <Nav icon={<Share2 size={18} />} label={t(locale, "share")} active={view === "share"} onClick={() => setView("share")} />
+        <Nav icon={<MessageSquare size={18} />} label={t(locale, "sms")} active={view === "sms"} onClick={() => { setView("sms"); void api.kdeStatus().then(setKde); }} />
         <Nav icon={<Radio size={18} />} label={t(locale, "kde")} active={view === "kde"} onClick={() => { setView("kde"); void api.kdeStatus().then(setKde); }} />
         <Nav icon={<Settings size={18} />} label={t(locale, "settings")} active={view === "settings"} onClick={() => setView("settings")} />
         <Nav icon={<HelpCircle size={18} />} label={t(locale, "help")} active={view === "help"} onClick={() => setView("help")} />
@@ -452,9 +452,6 @@ export default function App() {
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
             <button className="btn" onClick={() => void refreshDevices()} disabled={busy}>
               {t(locale, "refresh")}
-            </button>
-            <button className="btn btn-primary" onClick={() => void onMirror()} disabled={busy || !selected}>
-              {t(locale, "startMirror")}
             </button>
           </div>
         </header>
@@ -662,7 +659,7 @@ export default function App() {
           <div className="panel fade-in" style={{ padding: "1.25rem", display: "grid", gap: "0.75rem" }}>
             <p style={{ color: "var(--muted)", marginTop: 0 }}>
               On OnePlus and many phones, ADB cannot read/write the clipboard.
-              Prefer <strong style={{ color: "var(--ink)" }}>Start mirror</strong> with clipboard sync on:
+              Prefer clipboard sync in Settings when using ADB features.
               copy on the phone → paste on the PC (<kbd>Ctrl+V</kbd>), and the other way around in the scrcpy window.
             </p>
             <label>
@@ -767,8 +764,8 @@ export default function App() {
             />
 
             <p style={{ color: "var(--muted)", margin: 0, lineHeight: 1.45 }}>
-              On the phone open Aspera Connect and pick <strong>Option 1</strong> (calls) or{" "}
-              <strong>Option 2</strong> (calls + mirror). Then enter the phone IP here.
+              On the phone open Aspera Connect → <strong>Start for calls</strong>. Enter the phone IP below,
+              then connect. Hub / Zoho click-to-call will dial every time.
             </p>
 
             <label style={{ display: "grid", gap: 6 }}>
@@ -807,55 +804,6 @@ export default function App() {
               Connect for phone calls
             </button>
 
-            <button
-              className="btn"
-              style={{ minHeight: 52, fontSize: "1.05rem" }}
-              disabled={busy || !companionHost.trim()}
-              onClick={async () => {
-                setBusy(true);
-                setError(null);
-                // Ensure linked, then start mirror
-                if (!companion?.connected) {
-                  const hello = await api.companionHello(companionHost, companionName, companionPin || undefined);
-                  if (!hello.ok) {
-                    setBusy(false);
-                    setCompanion({
-                      connected: false,
-                      device: null,
-                      mirroring: false,
-                      lastError: hello.error?.message ?? "Connection failed",
-                    });
-                    return setError(hello.error ?? null);
-                  }
-                  setCompanion(hello.data ?? null);
-                  setConfig(await api.getConfig());
-                }
-                const res = await api.companionStartMirror(companionHost);
-                setBusy(false);
-                if (!res.ok) return setError(res.error ?? null);
-                setCompanion(await api.getCompanionState());
-                setStatusMsg("Mirror started — look for the phone screen window");
-              }}
-            >
-              Start mirror
-            </button>
-
-            {(companion?.mirroring || companion?.connected) && (
-              <button
-                className="btn"
-                disabled={busy}
-                onClick={async () => {
-                  setBusy(true);
-                  await api.companionStopMirror(companionHost);
-                  setCompanion(await api.getCompanionState());
-                  setBusy(false);
-                  setStatusMsg("Mirror stopped");
-                }}
-              >
-                Stop mirror
-              </button>
-            )}
-
             <details style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
               <summary style={{ cursor: "pointer" }}>More options</summary>
               <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
@@ -884,7 +832,7 @@ export default function App() {
                       setStatusMsg(
                         res.data?.length
                           ? `Found ${res.data.length} phone(s)`
-                          : "No phone found — open Option 1 or 2 on the phone first",
+                          : "No phone found — tap Start for calls on the phone first",
                       );
                     }}
                   >
@@ -1158,14 +1106,10 @@ function HomeView(props: {
     selected,
     setSelected,
     selectedDevice,
-    mirrors,
     tools,
     config,
-    onMirror,
-    onMeetings,
     onOpenApps,
     onSms,
-    onStopAll,
     onNickname,
     onPushClipboard,
     onOpenFavorite,
@@ -1180,7 +1124,6 @@ function HomeView(props: {
     busy,
     locale,
   } = props;
-  const mirroringSelected = !!selectedDevice && mirrors.some((m) => m.serial === selectedDevice.serial && m.running);
   const identity = resolveSkinIdentity(selectedDevice);
   const [nicknameDraft, setNicknameDraft] = useState("");
   const favorites = (config.favoriteApps ?? []).slice(0, 6);
@@ -1239,20 +1182,11 @@ function HomeView(props: {
           </div>
         )}
         <div style={{ display: "flex", gap: 8, marginTop: "1rem", flexWrap: "wrap" }}>
-          <button className="btn btn-primary" disabled={busy || !selectedDevice || selectedDevice.state !== "device"} onClick={onMirror}>
-            Mirror
-          </button>
-          <button className="btn" disabled={busy || !selectedDevice || selectedDevice.state !== "device"} onClick={onMeetings}>
-            Meetings
-          </button>
           <button className="btn" disabled={!selectedDevice || selectedDevice.state !== "device"} onClick={onOpenApps}>
             Open app…
           </button>
           <button className="btn" disabled={!selectedDevice} onClick={onSms}>
             SMS
-          </button>
-          <button className="btn" disabled={!mirrors.length} onClick={onStopAll}>
-            Stop ({mirrors.length})
           </button>
           <button className="btn" disabled={!selectedDevice} onClick={onPushClipboard}>
             Copy clipboard
@@ -1271,8 +1205,8 @@ function HomeView(props: {
         >
           <strong>Call via phone</strong>
           <p style={{ color: "var(--muted)", margin: 0, fontSize: "0.85rem" }}>
-            Paste a CRM number, or register <code>tel:</code> so Zoho/browser phone links open here.
-            Call audio uses your phone / BT neckband.
+            Prefer <strong style={{ color: "var(--ink)" }}>Easy mode</strong> (sidebar) for Hub click-to-call —
+            no USB / Developer Options. ADB call below is optional when a device is listed.
           </p>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <input
@@ -1321,10 +1255,7 @@ function HomeView(props: {
         </div>
 
         <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "0.75rem 0 0" }}>
-          Clipboard sync while mirroring:{" "}
-          <strong style={{ color: "var(--ink)" }}>
-            {config.clipboardSync !== false ? "on" : "off"}
-          </strong>
+          For Hub click-to-call without USB, use <strong style={{ color: "var(--ink)" }}>Easy mode</strong> in the sidebar.
         </p>
         {favorites.length && selectedDevice?.state === "device" ? (
           <div style={{ marginTop: "0.85rem", display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1365,19 +1296,12 @@ function HomeView(props: {
           battery={selectedDevice?.battery}
           androidVersion={selectedDevice?.androidVersion}
           connected={selectedDevice?.state === "device"}
-          mirroring={mirroringSelected}
+          mirroring={false}
         />
         <div style={{ width: "100%", display: "grid", gap: "0.85rem" }}>
-          <strong>Pro mode status</strong>
+          <strong>Tools (optional)</strong>
           <StatusLine ok={!!tools?.adb.found} label="adb" detail={tools?.adb.version ?? tools?.adb.installHint} />
-          <StatusLine ok={!!tools?.scrcpy.found} label="scrcpy" detail={tools?.scrcpy.version ?? tools?.scrcpy.installHint} />
           <StatusLine ok={!!tools?.kdeconnect.found} label="kdeconnect-cli" detail={tools?.kdeconnect.found ? "share / SMS send" : "optional"} />
-          <p style={{ color: "var(--muted)", marginBottom: 0 }}>
-            Profile: <strong style={{ color: "var(--ink)" }}>{config.preferredProfile}</strong>
-            {config.forwardAudio !== false ? " · audio on" : " · audio off"}
-            {config.clipboardSync !== false ? " · clipboard on" : " · clipboard off"}
-            {config.recordMirror ? " · recording" : ""}
-          </p>
         </div>
       </section>
     </div>
