@@ -35,8 +35,11 @@ class MainActivity : ComponentActivity() {
     private val callPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             statusSetter?.invoke(
-                if (granted) "Phone permission granted — PC can place calls directly."
-                else "Phone permission denied — PC calls will open the dialer (tap Call).",
+                if (granted) {
+                    "Phone permission granted — PC can place calls directly."
+                } else {
+                    "Phone permission denied — PC calls will open the dialer (tap Call)."
+                },
             )
         }
 
@@ -68,7 +71,7 @@ class MainActivity : ComponentActivity() {
                     statusSetter = { status = it }
                     val ip = CompanionService.lastLocalIp
                         ?: CompanionService.guessLocalIpv4()
-                        ?: "connect to Wi‑Fi"
+                        ?: "connect to Wi-Fi"
 
                     Column(
                         modifier = Modifier.padding(24.dp),
@@ -76,7 +79,7 @@ class MainActivity : ComponentActivity() {
                     ) {
                         Text("Aspera Connect", style = MaterialTheme.typography.headlineMedium)
                         Text(
-                            "Easy mode for Linux. Same Wi‑Fi as your PC. " +
+                            "Easy mode for Linux. Same Wi-Fi as your PC. " +
                                 "Hub / Zoho click-to-call works after you tap Listen.",
                         )
                         Text("This phone IP: $ip", style = MaterialTheme.typography.titleMedium)
@@ -111,7 +114,7 @@ class MainActivity : ComponentActivity() {
                                 CompanionService.start(this@MainActivity, pin)
                                 val mpm = getSystemService(MediaProjectionManager::class.java)
                                 projectionLauncher.launch(mpm.createScreenCaptureIntent())
-                                status = "Waiting for capture permission…"
+                                status = "Waiting for capture permission..."
                             },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
