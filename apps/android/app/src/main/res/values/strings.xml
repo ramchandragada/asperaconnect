@@ -12,4 +12,5 @@
     <string name="listen_sub">Hub / Zoho click‑to‑call from your PC</string>
     <string name="stop">Stop</string>
     <string name="footer">No Developer Options · stays on your network</string>
+    <string name="version_label">v%1$s</string>
 </resources>

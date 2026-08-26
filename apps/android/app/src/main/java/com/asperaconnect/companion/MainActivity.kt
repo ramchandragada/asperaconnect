@@ -62,6 +62,12 @@ class MainActivity : ComponentActivity() {
         linkDetail = findViewById(R.id.linkDetail)
         linkPill = findViewById(R.id.linkPill)
         findViewById<TextView>(R.id.portText).text = "Port ${CompanionService.PORT}"
+        findViewById<TextView>(R.id.versionText).text = try {
+            val p = packageManager.getPackageInfo(packageName, 0)
+            "v${p.versionName}"
+        } catch (_: Exception) {
+            "v0.3.2"
+        }
 
         refreshIp()
         applyLinkStatus(CompanionService.lastStatus, CompanionService.linkedPcName, CompanionService.lastLocalIp)
