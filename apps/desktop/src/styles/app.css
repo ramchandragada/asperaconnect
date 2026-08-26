@@ -221,6 +221,110 @@ textarea {
   color: var(--danger);
 }
 
+.call-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  border-radius: 14px;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--line);
+  animation: call-banner-in 0.25s ease;
+}
+
+.call-banner-pulse {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--accent);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
+  animation: call-pulse 1.2s ease-out infinite;
+}
+
+.call-banner-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.call-banner-title {
+  font-weight: 700;
+  font-size: 1.05rem;
+  margin-bottom: 0.15rem;
+}
+
+.call-banner-detail {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.call-banner-dialing {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg2));
+}
+
+.call-banner-dialing .call-banner-title {
+  color: var(--accent);
+}
+
+.call-banner-sent {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg2));
+}
+
+.call-banner-sent .call-banner-title {
+  color: var(--accent);
+}
+
+.call-banner-sent .call-banner-pulse {
+  animation: none;
+  background: var(--accent);
+  box-shadow: none;
+}
+
+.call-banner-failed {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
+  background: color-mix(in srgb, var(--danger) 12%, var(--bg2));
+}
+
+.call-banner-failed .call-banner-title {
+  color: var(--danger);
+}
+
+.call-banner-failed .call-banner-pulse {
+  animation: none;
+  background: var(--danger);
+  box-shadow: none;
+}
+
+.contact-row-calling {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-radius: 10px;
+}
+
+@keyframes call-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 12px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes call-banner-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .fade-in {
   animation: fadeIn 0.35s ease both;
 }

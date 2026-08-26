@@ -28,6 +28,12 @@ export default function App() {
   const [discoveredCompanions, setDiscoveredCompanions] = useState<CompanionDevice[]>([]);
   const [contactsCache, setContactsCache] = useState<ContactsCache>({ contacts: [] });
   const [contactQuery, setContactQuery] = useState("");
+  const [activeCall, setActiveCall] = useState<{
+    name: string;
+    number: string;
+    phase: "dialing" | "sent" | "failed";
+    detail?: string;
+  } | null>(null);
 
   const locale = config?.locale ?? "en";
 
@@ -162,13 +168,34 @@ export default function App() {
     setStatusMsg(`Synced ${n} contact${n === 1 ? "" : "s"} from phone`);
   }
 
-  async function callNumber(number: string) {
+  async function callNumber(number: string, name?: string) {
+    const label = name?.trim() || number;
     setBusy(true);
     setError(null);
+    setActiveCall({ name: label, number, phase: "dialing" });
+    setStatusMsg(null);
     const res = await api.placeCall({ number, serial: null, direct: true });
     setBusy(false);
-    if (!res.ok) return setError(res.error ?? null);
-    setStatusMsg(res.data ?? `Calling ${number}`);
+    if (!res.ok) {
+      setActiveCall({
+        name: label,
+        number,
+        phase: "failed",
+        detail: res.error?.message ?? "Call failed",
+      });
+      setError(res.error ?? null);
+      return;
+    }
+    setActiveCall({
+      name: label,
+      number,
+      phase: "sent",
+      detail: res.data ?? "Ringing on your phone",
+    });
+    setStatusMsg(null);
+    window.setTimeout(() => {
+      setActiveCall((prev) => (prev?.phase === "sent" ? null : prev));
+    }, 8000);
   }
 
   if (!config) {
@@ -419,6 +446,45 @@ export default function App() {
 
         {view === "contacts" && (
           <div className="panel fade-in" style={{ padding: "1.25rem", display: "grid", gap: "0.85rem", maxWidth: 640 }}>
+            {activeCall ? (
+              <div
+                className={`call-banner call-banner-${activeCall.phase}`}
+                role="status"
+                aria-live="polite"
+              >
+                <div className="call-banner-pulse" aria-hidden />
+                <div className="call-banner-body">
+                  <div className="call-banner-title">
+                    {activeCall.phase === "dialing"
+                      ? "Calling…"
+                      : activeCall.phase === "sent"
+                        ? "Call sent to phone"
+                        : "Call failed"}
+                  </div>
+                  <div className="call-banner-detail">
+                    <strong>{activeCall.name}</strong>
+                    {activeCall.name !== activeCall.number ? (
+                      <>
+                        {" "}
+                        · <code>{activeCall.number}</code>
+                      </>
+                    ) : null}
+                    {activeCall.detail ? (
+                      <>
+                        <br />
+                        <span>{activeCall.detail}</span>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+                {activeCall.phase !== "dialing" ? (
+                  <button className="btn btn-ghost" onClick={() => setActiveCall(null)}>
+                    Dismiss
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
               <input
                 className="field"
@@ -426,10 +492,11 @@ export default function App() {
                 value={contactQuery}
                 onChange={(e) => setContactQuery(e.target.value)}
                 placeholder="Search name or number"
+                disabled={activeCall?.phase === "dialing"}
               />
               <button
                 className="btn btn-primary"
-                disabled={busy || !companionHost.trim()}
+                disabled={busy || !companionHost.trim() || activeCall?.phase === "dialing"}
                 onClick={() => void syncContacts()}
               >
                 Sync from phone
@@ -444,12 +511,17 @@ export default function App() {
                       : ""
                   }`}
             </p>
-            <div style={{ display: "grid", gap: 6, maxHeight: "calc(100vh - 280px)", overflow: "auto" }}>
+            <div style={{ display: "grid", gap: 6, maxHeight: "calc(100vh - 320px)", overflow: "auto" }}>
               {filteredContacts.map((c) => {
                 const primary = c.phones[0] ?? "";
+                const isThis =
+                  activeCall &&
+                  (activeCall.number === primary || activeCall.name === c.name);
+                const dialingThis = isThis && activeCall.phase === "dialing";
                 return (
                   <div
                     key={c.id}
+                    className={dialingThis ? "contact-row contact-row-calling" : "contact-row"}
                     style={{
                       display: "flex",
                       gap: 10,
@@ -466,10 +538,10 @@ export default function App() {
                     </div>
                     <button
                       className="btn btn-primary"
-                      disabled={busy || !primary}
-                      onClick={() => void callNumber(primary)}
+                      disabled={busy || !primary || activeCall?.phase === "dialing"}
+                      onClick={() => void callNumber(primary, c.name)}
                     >
-                      Call
+                      {dialingThis ? "Calling…" : "Call"}
                     </button>
                   </div>
                 );
