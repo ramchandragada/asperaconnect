@@ -137,6 +137,63 @@ pub async fn companion_place_call(
     }
 }
 
+/// One-shot: hello + listContacts on the companion.
+pub async fn companion_list_contacts(
+    host: &str,
+    port: u16,
+    pin: Option<&str>,
+) -> Result<Vec<crate::contacts::PhoneContact>, AsperaError> {
+    let addr = format!("{host}:{port}");
+    let stream = TcpStream::connect(&addr)
+        .await
+        .map_err(|e| AsperaError::Message(format!(
+            "companion unreachable at {addr}: {e}. On the phone open Aspera Connect → Start for calls."
+        )))?;
+    let stream = complete_hello(stream, pin, Some("Contacts sync")).await?;
+    let (reader, mut writer) = stream.into_split();
+    let mut reader = BufReader::new(reader);
+
+    writer
+        .write_all(b"{\"type\":\"listContacts\"}\n")
+        .await
+        .map_err(|e| AsperaError::Message(e.to_string()))?;
+
+    let mut line = String::new();
+    reader
+        .read_line(&mut line)
+        .await
+        .map_err(|e| AsperaError::Message(e.to_string()))?;
+    let ack: serde_json::Value = serde_json::from_str(line.trim())
+        .map_err(|e| AsperaError::Message(format!("bad contacts reply: {e}")))?;
+    if ack.get("type").and_then(|v| v.as_str()) != Some("contacts") {
+        return Err(AsperaError::Message(format!(
+            "unexpected companion reply: {}",
+            line.trim()
+        )));
+    }
+    let ok = ack.get("ok").and_then(|v| v.as_bool()).unwrap_or(false);
+    if !ok {
+        let reason = ack
+            .get("reason")
+            .and_then(|v| v.as_str())
+            .unwrap_or("contacts_failed");
+        return Err(AsperaError::Message(match reason {
+            "need_contacts_permission" => {
+                "Allow Contacts on the phone (Start for calls → Allow), then Sync again.".into()
+            }
+            other => format!("Could not read contacts ({other})"),
+        }));
+    }
+
+    let list = ack
+        .get("contacts")
+        .cloned()
+        .unwrap_or(serde_json::Value::Array(vec![]));
+    let contacts: Vec<crate::contacts::PhoneContact> = serde_json::from_value(list)
+        .map_err(|e| AsperaError::Message(format!("contacts parse: {e}")))?;
+    Ok(contacts)
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EasyMirrorReady {

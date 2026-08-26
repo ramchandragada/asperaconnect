@@ -164,4 +164,16 @@ export interface CompanionSessionState {
   lastError?: string | null;
 }
 
-export type AppView = "companion" | "settings" | "help";
+export type AppView = "companion" | "contacts" | "settings" | "help";
+
+export interface PhoneContact {
+  id: string;
+  name: string;
+  phones: string[];
+}
+
+export interface ContactsCache {
+  syncedAt?: string | null;
+  host?: string | null;
+  contacts: PhoneContact[];
+}

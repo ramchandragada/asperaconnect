@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { HelpCircle, Settings, Smartphone } from "lucide-react";
+import { BookUser, HelpCircle, Settings, Smartphone } from "lucide-react";
 import { api } from "./lib/api";
 import { locales, t } from "./lib/i18n";
 import type {
@@ -8,6 +8,7 @@ import type {
   AppView,
   CompanionDevice,
   CompanionSessionState,
+  ContactsCache,
   UserFacingError,
 } from "./lib/types";
 import { ErrorBanner } from "./components/ErrorBanner";
@@ -25,12 +26,25 @@ export default function App() {
   const [companionName, setCompanionName] = useState("My Phone");
   const [companionPin, setCompanionPin] = useState("");
   const [discoveredCompanions, setDiscoveredCompanions] = useState<CompanionDevice[]>([]);
+  const [contactsCache, setContactsCache] = useState<ContactsCache>({ contacts: [] });
+  const [contactQuery, setContactQuery] = useState("");
 
   const locale = config?.locale ?? "en";
 
+  const filteredContacts = useMemo(() => {
+    const q = contactQuery.trim().toLowerCase();
+    const list = contactsCache.contacts ?? [];
+    if (!q) return list;
+    return list.filter((c) => {
+      if (c.name.toLowerCase().includes(q)) return true;
+      return c.phones.some((p) => p.toLowerCase().includes(q));
+    });
+  }, [contactsCache.contacts, contactQuery]);
+
   const bootstrap = useCallback(async () => {
-    const cfg = await api.getConfig();
+    const [cfg, cached] = await Promise.all([api.getConfig(), api.loadCachedContacts()]);
     setConfig(cfg);
+    setContactsCache(cached ?? { contacts: [] });
     setCompanionPin(cfg.companionPin ?? "");
     if (cfg.companionHost) setCompanionHost(cfg.companionHost);
     if (cfg.companionName) setCompanionName(cfg.companionName);
@@ -88,12 +102,14 @@ export default function App() {
           const text = await navigator.clipboard.readText();
           const parsed = await api.parseCallUri(text.trim());
           if (!parsed.ok || !parsed.data) {
-            setError(parsed.error ?? {
-              code: "clipboard",
-              title: "No number",
-              message: "Copy a phone number first, then use Call from clipboard.",
-              hint: null,
-            });
+            setError(
+              parsed.error ?? {
+                code: "clipboard",
+                title: "No number",
+                message: "Copy a phone number first, then use Call from clipboard.",
+                hint: null,
+              },
+            );
             return;
           }
           setView("companion");
@@ -135,6 +151,26 @@ export default function App() {
     setConfig(next);
   }
 
+  async function syncContacts(host?: string) {
+    setBusy(true);
+    setError(null);
+    const res = await api.syncPhoneContacts(host ?? (companionHost.trim() || null));
+    setBusy(false);
+    if (!res.ok) return setError(res.error ?? null);
+    setContactsCache(res.data ?? { contacts: [] });
+    const n = res.data?.contacts?.length ?? 0;
+    setStatusMsg(`Synced ${n} contact${n === 1 ? "" : "s"} from phone`);
+  }
+
+  async function callNumber(number: string) {
+    setBusy(true);
+    setError(null);
+    const res = await api.placeCall({ number, serial: null, direct: true });
+    setBusy(false);
+    if (!res.ok) return setError(res.error ?? null);
+    setStatusMsg(res.data ?? `Calling ${number}`);
+  }
+
   if (!config) {
     return (
       <div style={{ display: "grid", placeItems: "center", height: "100%" }}>
@@ -153,6 +189,15 @@ export default function App() {
       />
     );
   }
+
+  const heading =
+    view === "companion"
+      ? "Phone calls"
+      : view === "contacts"
+        ? "Contacts"
+        : view === "settings"
+          ? t(locale, "settings")
+          : t(locale, "help");
 
   return (
     <div className="app-shell" style={{ display: "grid", gridTemplateColumns: "220px 1fr", height: "100%" }}>
@@ -186,6 +231,17 @@ export default function App() {
           }
         />
         <Nav
+          icon={<BookUser size={18} />}
+          label="Contacts"
+          active={view === "contacts"}
+          onClick={() => setView("contacts")}
+          badge={
+            (contactsCache.contacts?.length ?? 0) > 0
+              ? { text: String(contactsCache.contacts.length), tone: "ok" }
+              : undefined
+          }
+        />
+        <Nav
           icon={<Settings size={18} />}
           label={t(locale, "settings")}
           active={view === "settings"}
@@ -206,9 +262,13 @@ export default function App() {
       <main style={{ padding: "1.25rem 1.5rem", overflow: "auto", minWidth: 0 }}>
         <header style={{ marginBottom: "1rem" }}>
           <div className="brand" style={{ fontSize: "1.8rem" }}>
-            {view === "companion" ? "Phone calls" : view === "settings" ? t(locale, "settings") : t(locale, "help")}
+            {heading}
           </div>
-          <div style={{ color: "var(--muted)" }}>PC → phone dialing. Nothing else.</div>
+          <div style={{ color: "var(--muted)" }}>
+            {view === "contacts"
+              ? "Search synced phone contacts and dial from the PC."
+              : "PC → phone dialing. Nothing else."}
+          </div>
         </header>
 
         {error ? (
@@ -273,7 +333,8 @@ export default function App() {
                 }
                 setCompanion(res.data ?? null);
                 setConfig(await api.getConfig());
-                setStatusMsg("Connected — Hub click-to-call can use this phone");
+                setStatusMsg("Connected — syncing contacts…");
+                await syncContacts(companionHost);
               }}
             >
               Connect for phone calls
@@ -356,6 +417,70 @@ export default function App() {
           </div>
         )}
 
+        {view === "contacts" && (
+          <div className="panel fade-in" style={{ padding: "1.25rem", display: "grid", gap: "0.85rem", maxWidth: 640 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <input
+                className="field"
+                style={{ flex: 1, minWidth: 180 }}
+                value={contactQuery}
+                onChange={(e) => setContactQuery(e.target.value)}
+                placeholder="Search name or number"
+              />
+              <button
+                className="btn btn-primary"
+                disabled={busy || !companionHost.trim()}
+                onClick={() => void syncContacts()}
+              >
+                Sync from phone
+              </button>
+            </div>
+            <p style={{ color: "var(--muted)", margin: 0, fontSize: "0.85rem" }}>
+              {(contactsCache.contacts?.length ?? 0) === 0
+                ? "No contacts yet — Connect for phone calls (auto-syncs) or tap Sync from phone."
+                : `${contactsCache.contacts.length} contact${contactsCache.contacts.length === 1 ? "" : "s"} cached${
+                    contactsCache.syncedAt
+                      ? ` · last sync ${new Date(contactsCache.syncedAt).toLocaleString()}`
+                      : ""
+                  }`}
+            </p>
+            <div style={{ display: "grid", gap: 6, maxHeight: "calc(100vh - 280px)", overflow: "auto" }}>
+              {filteredContacts.map((c) => {
+                const primary = c.phones[0] ?? "";
+                return (
+                  <div
+                    key={c.id}
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      alignItems: "center",
+                      padding: "0.65rem 0.75rem",
+                      borderBottom: "1px solid var(--line)",
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600 }}>{c.name}</div>
+                      <div style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+                        {c.phones.join(" · ")}
+                      </div>
+                    </div>
+                    <button
+                      className="btn btn-primary"
+                      disabled={busy || !primary}
+                      onClick={() => void callNumber(primary)}
+                    >
+                      Call
+                    </button>
+                  </div>
+                );
+              })}
+              {filteredContacts.length === 0 && (contactsCache.contacts?.length ?? 0) > 0 ? (
+                <p style={{ color: "var(--muted)" }}>No matches for “{contactQuery}”.</p>
+              ) : null}
+            </div>
+          </div>
+        )}
+
         {view === "settings" && (
           <div className="panel fade-in" style={{ padding: "1.25rem", display: "grid", gap: "0.9rem", maxWidth: 420 }}>
             <label>
@@ -374,7 +499,7 @@ export default function App() {
               </select>
             </label>
             <p style={{ color: "var(--muted)", margin: 0, fontSize: "0.9rem" }}>
-              Calling uses Easy mode only. No ADB, scrcpy, or KDE Connect required.
+              Calling uses Easy mode only. Contacts sync over the same link.
             </p>
           </div>
         )}
@@ -383,14 +508,22 @@ export default function App() {
           <div className="panel fade-in" style={{ padding: "1.25rem", lineHeight: 1.55, maxWidth: 640 }}>
             <h3 style={{ marginTop: 0 }}>Click-to-call</h3>
             <ol>
-              <li>Phone: open Aspera Connect → <strong>Start for calls</strong> (keep the notification).</li>
-              <li>PC: enter the phone IP → <strong>Connect for phone calls</strong>.</li>
-              <li>Optional: register <code>tel:</code> so Zoho / browser links dial here.</li>
-              <li>Click a number in Hub / Zoho — the phone dials.</li>
+              <li>
+                Phone: open Aspera Connect → <strong>Start for calls</strong> (allow Phone + Contacts).
+              </li>
+              <li>
+                PC: enter the phone IP → <strong>Connect for phone calls</strong> (auto-syncs contacts).
+              </li>
+              <li>
+                Open <strong>Contacts</strong>, search, tap <strong>Call</strong>.
+              </li>
+              <li>
+                Optional: register <code>tel:</code> for Zoho / browser links.
+              </li>
             </ol>
             <p style={{ color: "var(--muted)" }}>
-              Same office network is enough (phone Wi‑Fi + PC wired is fine). On OnePlus, set battery to
-              Unrestricted for Aspera Connect.
+              Close the window to the tray — dialing and cached contacts stay available while the phone
+              notification is up.
             </p>
           </div>
         )}
@@ -417,7 +550,7 @@ function Nav({
       {icon}
       <span style={{ flex: 1 }}>{label}</span>
       {badge ? (
-        <span className={`nav-badge nav-badge-${badge.tone}`} aria-label={`Phone calls ${badge.text}`}>
+        <span className={`nav-badge nav-badge-${badge.tone}`} aria-label={`${label} ${badge.text}`}>
           {badge.text}
         </span>
       ) : null}

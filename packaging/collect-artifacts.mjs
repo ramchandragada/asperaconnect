@@ -9,9 +9,11 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cargoTarget =
   process.env.CARGO_TARGET_DIR ||
+  join(root, "target") ||
   join(root, "apps/desktop/src-tauri/target");
 const bundleDirs = [
   join(cargoTarget, "release/bundle"),
+  join(root, "target/release/bundle"),
   join(root, "apps/desktop/src-tauri/target/release/bundle"),
 ];
 

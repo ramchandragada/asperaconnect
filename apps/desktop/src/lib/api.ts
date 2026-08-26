@@ -4,6 +4,7 @@ import type {
   CommandResult,
   CompanionDevice,
   CompanionSessionState,
+  ContactsCache,
   Device,
   KdeStatus,
   MirrorHandle,
@@ -133,6 +134,9 @@ export const api = {
       name,
       pin: pin || null,
     }),
+  syncPhoneContacts: (host?: string | null) =>
+    invoke<CommandResult<ContactsCache>>("sync_phone_contacts", { host: host ?? null }),
+  loadCachedContacts: () => invoke<ContactsCache>("load_cached_contacts"),
   companionPlaceCall: (args: {
     number: string;
     host?: string | null;

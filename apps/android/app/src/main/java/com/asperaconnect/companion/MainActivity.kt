@@ -41,8 +41,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private val callPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+    private val permissionsLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
             statusText.text = "Ready — you can leave this app. Keep the notification."
             maybeAskBatteryOpt()
         }
@@ -85,7 +85,7 @@ class MainActivity : ComponentActivity() {
         val ip = CompanionService.guessLocalIpv4() ?: "…"
         applyLinkStatus(CompanionService.STATUS_LISTENING, null, ip)
         statusText.text = "Ready — you can leave this app. PC uses IP $ip"
-        ensureCallPermission()
+        ensureCallAndContactsPermissions()
         maybeAskBatteryOpt()
     }
 
@@ -170,12 +170,21 @@ class MainActivity : ComponentActivity() {
         ipText.text = ip
     }
 
-    private fun ensureCallPermission() {
+    private fun ensureCallAndContactsPermissions() {
         if (Build.VERSION.SDK_INT < 23) return
-        val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) ==
+        val needed = mutableListOf<String>()
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) !=
             PackageManager.PERMISSION_GRANTED
-        if (!granted) {
-            callPermissionLauncher.launch(Manifest.permission.CALL_PHONE)
+        ) {
+            needed.add(Manifest.permission.CALL_PHONE)
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            needed.add(Manifest.permission.READ_CONTACTS)
+        }
+        if (needed.isNotEmpty()) {
+            permissionsLauncher.launch(needed.toTypedArray())
         }
     }
 

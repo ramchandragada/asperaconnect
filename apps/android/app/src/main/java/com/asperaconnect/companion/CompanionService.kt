@@ -278,6 +278,7 @@ class CompanionService : Service() {
                                 "capabilities",
                                 JSONObject()
                                     .put("placeCall", true)
+                                    .put("contacts", true)
                                     .put("mirror", false)
                                     .put("input", false),
                             )
@@ -315,6 +316,24 @@ class CompanionService : Service() {
                     }
                     "ping" -> {
                         writer.write(JSONObject().put("type", "pong").toString())
+                        writer.newLine()
+                        writer.flush()
+                    }
+                    "listContacts" -> {
+                        if (!authed) {
+                            writeErr(writer, "not_authed")
+                            continue
+                        }
+                        val (ok, contacts) = ContactReader.listContacts(this@CompanionService)
+                        val ack = JSONObject()
+                            .put("type", "contacts")
+                            .put("ok", ok)
+                            .put("contacts", contacts)
+                            .put(
+                                "reason",
+                                if (ok) JSONObject.NULL else "need_contacts_permission",
+                            )
+                        writer.write(ack.toString())
                         writer.newLine()
                         writer.flush()
                     }
