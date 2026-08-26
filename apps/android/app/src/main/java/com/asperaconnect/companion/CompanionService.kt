@@ -145,7 +145,7 @@ class CompanionService : Service() {
             Log.i(TAG, "Companion listening on $PORT")
             while (scope.isActive) {
                 val socket = server.accept()
-                launch { handleClient(socket) }
+                scope.launch { handleClient(socket) }
             }
         }
     }

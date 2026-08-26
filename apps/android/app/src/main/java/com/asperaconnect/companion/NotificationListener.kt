@@ -20,7 +20,7 @@ class NotificationListener : NotificationListenerService() {
         val line = payload.toString()
         Log.i("AsperaNotify", line)
         lastPayload = line
-        MirrorService.broadcast(line)
+        // Optional: forward to PC later via CompanionService when connected.
     }
 
     companion object {
