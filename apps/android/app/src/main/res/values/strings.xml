@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Aspera Connect</string>
-    <string name="tagline">Easy mode for Linux</string>
-    <string name="hero_support">Phone and PC must reach each other on the office network (Wi‑Fi phone + wired PC is fine). No Developer Options. Hub click‑to‑call when you Listen.</string>
-    <string name="status_idle_title">Ready when you are</string>
-    <string name="status_idle_detail">Tap Listen so your PC can reach this phone.</string>
-    <string name="status_listening_title">Listening for PC</string>
-    <string name="status_linked_title">Connected</string>
+    <string name="tagline">For your Linux PC</string>
+    <string name="hero_support">Same office network as your PC (Wi‑Fi phone + wired PC is fine).</string>
+    <string name="status_idle_title">Choose what you need</string>
+    <string name="status_idle_detail">Pick Option 1 or Option 2 below. That’s all.</string>
+    <string name="status_listening_title">Ready for your PC</string>
+    <string name="status_linked_title">Connected to PC</string>
     <string name="status_failed_title">Couldn’t connect</string>
-    <string name="ip_label">Phone IP</string>
-    <string name="pin_hint">Optional PIN (match desktop)</string>
-    <string name="listen">1. Listen for PC</string>
-    <string name="allow_calls">2. Allow phone calls</string>
-    <string name="start_mirror">3. Allow screen capture (for mirror)</string>
-    <string name="optional">More options</string>
-    <string name="enable_taps">Enable tap accessibility</string>
-    <string name="stop">Stop listening</string>
-    <string name="footer">LAN only · no cloud · Apache‑2.0</string>
-    <string name="accessibility_desc">Allows Aspera Connect on Linux to send taps and system navigation while Easy mode mirroring is active.</string>
+    <string name="ip_label">Your phone IP (enter this on the PC)</string>
+    <string name="option1_title">Option 1 — Phone calls</string>
+    <string name="option1_sub">Hub / Zoho click‑to‑call from your PC</string>
+    <string name="option2_title">Option 2 — Phone calls + Mirror</string>
+    <string name="option2_sub">Calls, plus show this screen on your PC</string>
+    <string name="stop">Stop</string>
+    <string name="footer">No Developer Options · stays on your network</string>
+    <string name="capture_off">Mirror not ready yet</string>
+    <string name="capture_on">Mirror ready — start it on the PC</string>
+    <string name="accessibility_desc">Allows Aspera Connect on Linux to send taps while mirroring.</string>
 </resources>

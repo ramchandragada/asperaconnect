@@ -9,7 +9,6 @@ import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
-import android.provider.Settings
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -18,8 +17,15 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 
+/**
+ * Super-simple companion UI:
+ * Option 1 — Phone calls
+ * Option 2 — Phone calls + Mirror
+ */
 class MainActivity : ComponentActivity() {
     private var pendingPin: String = ""
+    private var wantMirrorAfterCalls = false
+
     private lateinit var statusText: TextView
     private lateinit var ipText: TextView
     private lateinit var pinInput: EditText
@@ -43,21 +49,19 @@ class MainActivity : ComponentActivity() {
                 MirrorService.ACTION_CAPTURE_STATE -> {
                     refreshCaptureUi(intent.getBooleanExtra(MirrorService.EXTRA_CAPTURE_READY, false))
                 }
-                MirrorService.ACTION_REQUEST_CAPTURE -> {
-                    launchScreenCapture()
-                }
+                MirrorService.ACTION_REQUEST_CAPTURE -> launchScreenCapture()
             }
         }
     }
 
     private val callPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            statusText.text =
-                if (granted) {
-                    "Phone permission granted — PC can place calls directly."
-                } else {
-                    "Phone permission denied — PC calls will open the dialer."
-                }
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+            if (wantMirrorAfterCalls) {
+                wantMirrorAfterCalls = false
+                launchScreenCapture()
+            } else {
+                statusText.text = "Ready — on the PC open Easy mode and connect."
+            }
         }
 
     private val projectionLauncher =
@@ -65,10 +69,10 @@ class MainActivity : ComponentActivity() {
             if (result.resultCode == RESULT_OK && result.data != null) {
                 CompanionService.start(this, pendingPin)
                 MirrorService.startWithProjection(this, result.resultCode, result.data!!, pendingPin)
-                statusText.text = "Starting screen capture…"
+                statusText.text = "Almost done — on the PC tap Start mirror."
             } else {
                 refreshCaptureUi(false)
-                statusText.text = "Screen capture cancelled — tap step 3 again."
+                statusText.text = "Mirror cancelled. You can still use Option 1 for calls."
             }
         }
 
@@ -85,29 +89,19 @@ class MainActivity : ComponentActivity() {
         linkPill = findViewById(R.id.linkPill)
         captureText = findViewById(R.id.captureText)
         findViewById<TextView>(R.id.portText).text = "Port ${CompanionService.PORT}"
+
         refreshIp()
         applyLinkStatus(CompanionService.lastStatus, CompanionService.linkedPcName, CompanionService.lastLocalIp)
         refreshCaptureUi(MirrorBridge.hasProjection() || MirrorBridge.isStreaming())
 
+        // Option 1 — Phone calls
         findViewById<Button>(R.id.listenButton).setOnClickListener {
-            pendingPin = pinInput.text?.toString().orEmpty()
-            ensureCallPermission()
-            CompanionService.start(this, pendingPin)
-            refreshIp()
-            val ip = CompanionService.guessLocalIpv4() ?: "unknown"
-            applyLinkStatus(CompanionService.STATUS_LISTENING, null, ip)
+            startCallsOnly()
         }
 
-        findViewById<Button>(R.id.phonePermButton).setOnClickListener {
-            ensureCallPermission()
-        }
-
+        // Option 2 — Phone calls + Mirror
         findViewById<Button>(R.id.mirrorButton).setOnClickListener {
-            launchScreenCapture()
-        }
-
-        findViewById<Button>(R.id.accessibilityButton).setOnClickListener {
-            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            startCallsAndMirror()
         }
 
         findViewById<Button>(R.id.stopButton).setOnClickListener {
@@ -118,7 +112,32 @@ class MainActivity : ComponentActivity() {
             statusText.text = getString(R.string.footer)
         }
 
+        // Keep hidden buttons from crashing if referenced elsewhere
+        findViewById<Button>(R.id.phonePermButton).setOnClickListener { ensureCallPermission(false) }
+        findViewById<Button>(R.id.accessibilityButton).setOnClickListener { }
+
         maybeHandleCaptureIntent(intent)
+    }
+
+    private fun startCallsOnly() {
+        wantMirrorAfterCalls = false
+        pendingPin = pinInput.text?.toString().orEmpty()
+        CompanionService.start(this, pendingPin)
+        refreshIp()
+        val ip = CompanionService.guessLocalIpv4() ?: "…"
+        applyLinkStatus(CompanionService.STATUS_LISTENING, null, ip)
+        statusText.text = "Tell the PC this IP: $ip"
+        ensureCallPermission(thenMirror = false)
+    }
+
+    private fun startCallsAndMirror() {
+        pendingPin = pinInput.text?.toString().orEmpty()
+        CompanionService.start(this, pendingPin)
+        refreshIp()
+        val ip = CompanionService.guessLocalIpv4() ?: "…"
+        applyLinkStatus(CompanionService.STATUS_LISTENING, null, ip)
+        statusText.text = "Next: allow screen share when Android asks."
+        ensureCallPermission(thenMirror = true)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -138,7 +157,6 @@ class MainActivity : ComponentActivity() {
         CompanionService.start(this, pendingPin)
         val mpm = getSystemService(MediaProjectionManager::class.java)
         projectionLauncher.launch(mpm.createScreenCaptureIntent())
-        statusText.text = "Android will ask to start casting / recording — tap Start / Allow."
     }
 
     override fun onStart() {
@@ -173,11 +191,15 @@ class MainActivity : ComponentActivity() {
 
     private fun refreshCaptureUi(ready: Boolean) {
         if (ready) {
+            captureText.visibility = TextView.VISIBLE
             captureText.setTextColor(ContextCompat.getColor(this, R.color.accent))
-            captureText.text = "Screen capture: ON — now tap Start Easy mirror on the PC"
+            captureText.text = getString(R.string.capture_on)
+        } else if (CompanionService.isRunning()) {
+            captureText.visibility = TextView.VISIBLE
+            captureText.setTextColor(ContextCompat.getColor(this, R.color.muted))
+            captureText.text = getString(R.string.capture_off)
         } else {
-            captureText.setTextColor(ContextCompat.getColor(this, R.color.amber))
-            captureText.text = "Screen capture: OFF — tap “3. Allow screen capture” below"
+            captureText.visibility = TextView.GONE
         }
     }
 
@@ -187,24 +209,23 @@ class MainActivity : ComponentActivity() {
                 linkBanner.setBackgroundResource(R.drawable.bg_status_ok)
                 linkPill.setBackgroundResource(R.drawable.bg_pill_ok)
                 linkPill.setTextColor(ContextCompat.getColor(this, R.color.accent_ink))
-                linkPill.text = "Linked"
+                linkPill.text = "Connected"
                 linkTitle.setTextColor(ContextCompat.getColor(this, R.color.accent))
                 linkTitle.text = getString(R.string.status_linked_title)
                 linkDetail.setTextColor(ContextCompat.getColor(this, R.color.ink_dim))
-                linkDetail.text = "Linked with ${pcName ?: "PC"}. Hub click‑to‑call is ready."
-                statusText.text = "Connected${pcName?.let { " · $it" } ?: ""}"
+                linkDetail.text = "PC can place calls${pcName?.let { " ($it)" } ?: ""}."
+                statusText.text = "Connected — leave this app running."
             }
             CompanionService.STATUS_LISTENING -> {
                 linkBanner.setBackgroundResource(R.drawable.bg_status_warn)
                 linkPill.setBackgroundResource(R.drawable.bg_pill_warn)
                 linkPill.setTextColor(ContextCompat.getColor(this, R.color.amber_ink))
-                linkPill.text = "Listening"
+                linkPill.text = "Waiting"
                 linkTitle.setTextColor(ContextCompat.getColor(this, R.color.amber))
                 linkTitle.text = getString(R.string.status_listening_title)
                 linkDetail.setTextColor(ContextCompat.getColor(this, R.color.ink_dim))
-                linkDetail.text =
-                    "On the PC: Aspera Connect → Easy mode → Connect. Use this IP (${ip ?: "…"})."
-                statusText.text = "Listening on ${ip ?: "…"}:${CompanionService.PORT}"
+                linkDetail.text = "On the PC, open Easy mode and enter IP ${ip ?: "…"}"
+                statusText.text = "Waiting for PC…"
             }
             CompanionService.STATUS_FAILED -> {
                 linkBanner.setBackgroundResource(R.drawable.bg_status_bad)
@@ -214,13 +235,13 @@ class MainActivity : ComponentActivity() {
                 linkTitle.setTextColor(ContextCompat.getColor(this, R.color.danger))
                 linkTitle.text = getString(R.string.status_failed_title)
                 linkDetail.setTextColor(ContextCompat.getColor(this, R.color.ink_dim))
-                linkDetail.text = "PIN mismatch or rejected. Match PIN on phone and PC, then try again."
-                statusText.text = "Connection failed — check PIN"
+                linkDetail.text = "Try Option 1 or 2 again."
+                statusText.text = "Something went wrong — try again."
             }
             else -> {
-                linkBanner.setBackgroundResource(R.drawable.bg_status_bad)
-                linkPill.setBackgroundResource(R.drawable.bg_pill_bad)
-                linkPill.setTextColor(ContextCompat.getColor(this, android.R.color.white))
+                linkBanner.setBackgroundResource(R.drawable.bg_status_warn)
+                linkPill.setBackgroundResource(R.drawable.bg_pill_warn)
+                linkPill.setTextColor(ContextCompat.getColor(this, R.color.amber_ink))
                 linkPill.text = "Off"
                 linkTitle.setTextColor(ContextCompat.getColor(this, R.color.ink))
                 linkTitle.text = getString(R.string.status_idle_title)
@@ -234,16 +255,23 @@ class MainActivity : ComponentActivity() {
     private fun refreshIp() {
         val ip = CompanionService.lastLocalIp
             ?: CompanionService.guessLocalIpv4()
-            ?: "Join office Wi‑Fi / LAN"
+            ?: "Connect to office Wi‑Fi"
         ipText.text = ip
     }
 
-    private fun ensureCallPermission() {
-        if (Build.VERSION.SDK_INT < 23) return
+    private fun ensureCallPermission(thenMirror: Boolean) {
+        wantMirrorAfterCalls = thenMirror
+        if (Build.VERSION.SDK_INT < 23) {
+            if (thenMirror) launchScreenCapture()
+            return
+        }
         val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) ==
             PackageManager.PERMISSION_GRANTED
         if (!granted) {
             callPermissionLauncher.launch(Manifest.permission.CALL_PHONE)
+        } else if (thenMirror) {
+            wantMirrorAfterCalls = false
+            launchScreenCapture()
         }
     }
 }

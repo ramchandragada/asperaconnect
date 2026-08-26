@@ -757,7 +757,7 @@ export default function App() {
         )}
 
         {view === "companion" && (
-          <div className="panel fade-in" style={{ padding: "1.25rem", display: "grid", gap: "0.85rem", maxWidth: 640 }}>
+          <div className="panel fade-in" style={{ padding: "1.25rem", display: "grid", gap: "1rem", maxWidth: 520 }}>
             <EasyLinkStatus
               connected={!!companion?.connected}
               host={companion?.device?.host ?? companionHost}
@@ -765,164 +765,161 @@ export default function App() {
               savedHost={config?.companionHost ?? null}
               lastError={companion?.lastError ?? null}
             />
-            <p style={{ color: "var(--muted)", marginTop: 0 }}>
-              Easy mode — no Developer Options. Install the companion APK (
-              <code>apps/android</code>), tap <strong>Listen for PC</strong>, then connect here.
-              Phone and PC must be on the <strong>same office network</strong> so they can reach each other
-              (Wi‑Fi phone + wired LAN PC is fine — they do not need the same Wi‑Fi SSID).
-              Hub / Zoho <code>tel:</code> calls use this path when USB debugging is off.
+
+            <p style={{ color: "var(--muted)", margin: 0, lineHeight: 1.45 }}>
+              On the phone open Aspera Connect and pick <strong>Option 1</strong> (calls) or{" "}
+              <strong>Option 2</strong> (calls + mirror). Then enter the phone IP here.
             </p>
-            <input className="field" value={companionName} onChange={(e) => setCompanionName(e.target.value)} placeholder="Phone name" />
-            <input className="field" value={companionHost} onChange={(e) => setCompanionHost(e.target.value)} placeholder="Phone IP" />
-            <input className="field" value={companionPin} onChange={(e) => setCompanionPin(e.target.value)} placeholder="Optional PIN" />
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              <button
-                className="btn"
-                onClick={async () => {
-                  setBusy(true);
-                  const res = await api.discoverCompanions();
-                  setBusy(false);
-                  if (!res.ok) return setError(res.error ?? null);
-                  setDiscoveredCompanions(res.data ?? []);
-                  if (res.data?.[0]) setCompanionHost(res.data[0].host);
-                  setStatusMsg(
-                    res.data?.length
-                      ? `Found ${res.data.length} device(s) via mDNS.`
-                      : "No devices found — open Aspera Connect on your phone → Listen for PC.",
-                  );
-                }}
-              >
-                Scan LAN (mDNS)
-              </button>
-              <button
-                className="btn"
-                onClick={async () => {
-                  const next = await api.setCompanionPin(companionPin);
-                  setConfig(next);
-                  setStatusMsg("Companion PIN saved");
-                }}
-              >
-                Save PIN
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={async () => {
-                  setError(null);
-                  const res = await api.companionHello(companionHost, companionName, companionPin || undefined);
-                  if (!res.ok) {
+
+            <label style={{ display: "grid", gap: 6 }}>
+              <span style={{ color: "var(--muted)", fontSize: "0.85rem", fontWeight: 600 }}>Phone IP</span>
+              <input
+                className="field"
+                value={companionHost}
+                onChange={(e) => setCompanionHost(e.target.value)}
+                placeholder="e.g. 192.168.1.9"
+              />
+            </label>
+
+            <button
+              className="btn btn-primary"
+              style={{ minHeight: 52, fontSize: "1.05rem" }}
+              disabled={busy || !companionHost.trim()}
+              onClick={async () => {
+                setBusy(true);
+                setError(null);
+                const res = await api.companionHello(companionHost, companionName, companionPin || undefined);
+                setBusy(false);
+                if (!res.ok) {
+                  setCompanion({
+                    connected: false,
+                    device: null,
+                    mirroring: false,
+                    lastError: res.error?.message ?? "Connection failed",
+                  });
+                  return setError(res.error ?? null);
+                }
+                setCompanion(res.data ?? null);
+                setConfig(await api.getConfig());
+                setStatusMsg("Connected — Hub click-to-call can use this phone");
+              }}
+            >
+              Connect for phone calls
+            </button>
+
+            <button
+              className="btn"
+              style={{ minHeight: 52, fontSize: "1.05rem" }}
+              disabled={busy || !companionHost.trim()}
+              onClick={async () => {
+                setBusy(true);
+                setError(null);
+                // Ensure linked, then start mirror
+                if (!companion?.connected) {
+                  const hello = await api.companionHello(companionHost, companionName, companionPin || undefined);
+                  if (!hello.ok) {
+                    setBusy(false);
                     setCompanion({
                       connected: false,
                       device: null,
                       mirroring: false,
-                      lastError: res.error?.message ?? "Connection failed",
+                      lastError: hello.error?.message ?? "Connection failed",
                     });
-                    return setError(res.error ?? null);
+                    return setError(hello.error ?? null);
                   }
-                  setCompanion(res.data ?? null);
+                  setCompanion(hello.data ?? null);
                   setConfig(await api.getConfig());
-                  setStatusMsg("Easy mode linked — Hub click-to-call can use this phone");
-                }}
-              >
-                Connect Easy mode
-              </button>
-              <button
-                className="btn"
-                onClick={async () => setCompanion(await api.getCompanionState())}
-              >
-                Refresh state
-              </button>
-            </div>
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
-              <button
-                className="btn btn-primary"
-                disabled={busy}
-                onClick={async () => {
-                  setBusy(true);
-                  setError(null);
-                  const res = await api.companionStartMirror(companionHost);
-                  setBusy(false);
-                  if (!res.ok) return setError(res.error ?? null);
-                  setCompanion(await api.getCompanionState());
-                  setStatusMsg(
-                    `Easy mirror started — look for the video window (${res.data?.width ?? "?"}×${res.data?.height ?? "?"}).`,
-                  );
-                }}
-              >
-                Start Easy mirror
-              </button>
+                }
+                const res = await api.companionStartMirror(companionHost);
+                setBusy(false);
+                if (!res.ok) return setError(res.error ?? null);
+                setCompanion(await api.getCompanionState());
+                setStatusMsg("Mirror started — look for the phone screen window");
+              }}
+            >
+              Start mirror
+            </button>
+
+            {(companion?.mirroring || companion?.connected) && (
               <button
                 className="btn"
                 disabled={busy}
                 onClick={async () => {
                   setBusy(true);
-                  const res = await api.companionStopMirror(companionHost);
-                  setBusy(false);
-                  if (!res.ok) return setError(res.error ?? null);
+                  await api.companionStopMirror(companionHost);
                   setCompanion(await api.getCompanionState());
-                  setStatusMsg(res.data ?? "Easy mirror stopped");
-                }}
-              >
-                Stop Easy mirror
-              </button>
-              <button className="btn" onClick={() => void api.companionInput({ kind: "back", host: companionHost })}>
-                Back
-              </button>
-              <button className="btn" onClick={() => void api.companionInput({ kind: "home", host: companionHost })}>
-                Home
-              </button>
-              <button className="btn" onClick={() => void api.companionInput({ kind: "recents", host: companionHost })}>
-                Recents
-              </button>
-            </div>
-            <p style={{ color: "var(--muted)", margin: 0, fontSize: "0.9rem" }}>
-              Phone: tap <strong>Allow screen capture</strong> once, then Start Easy mirror here.
-              Needs <code>ffplay</code> (<code>sudo apt install ffmpeg</code>) or <code>mpv</code>.
-              Nav buttons need Accessibility enabled on the phone. View-only stream — Pro/scrcpy is still better for full control.
-            </p>
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
-              <input
-                className="field"
-                style={{ flex: 1, minWidth: 160 }}
-                value={callNumber}
-                onChange={(e) => setCallNumber(e.target.value)}
-                placeholder="Test number"
-              />
-              <button
-                className="btn btn-primary"
-                disabled={busy || !callNumber.trim()}
-                onClick={async () => {
-                  setBusy(true);
-                  setError(null);
-                  const res = await api.companionPlaceCall({
-                    number: callNumber,
-                    host: companionHost,
-                    direct: callDirect,
-                  });
                   setBusy(false);
-                  if (!res.ok) return setError(res.error ?? null);
-                  setStatusMsg(res.data ?? "Call sent via companion");
+                  setStatusMsg("Mirror stopped");
                 }}
               >
-                Test call via companion
+                Stop mirror
               </button>
-            </div>
-            {discoveredCompanions.length ? (
-              <div style={{ display: "grid", gap: 6 }}>
-                {discoveredCompanions.map((d) => (
+            )}
+
+            <details style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+              <summary style={{ cursor: "pointer" }}>More options</summary>
+              <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                <input
+                  className="field"
+                  value={companionName}
+                  onChange={(e) => setCompanionName(e.target.value)}
+                  placeholder="Phone name"
+                />
+                <input
+                  className="field"
+                  value={companionPin}
+                  onChange={(e) => setCompanionPin(e.target.value)}
+                  placeholder="Optional PIN"
+                />
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <button
-                    key={d.id}
-                    className="btn btn-ghost"
-                    style={{ textAlign: "left" }}
-                    onClick={() => {
-                      setCompanionHost(d.host);
-                      setCompanionName(d.name);
+                    className="btn"
+                    onClick={async () => {
+                      setBusy(true);
+                      const res = await api.discoverCompanions();
+                      setBusy(false);
+                      if (!res.ok) return setError(res.error ?? null);
+                      setDiscoveredCompanions(res.data ?? []);
+                      if (res.data?.[0]) setCompanionHost(res.data[0].host);
+                      setStatusMsg(
+                        res.data?.length
+                          ? `Found ${res.data.length} phone(s)`
+                          : "No phone found — open Option 1 or 2 on the phone first",
+                      );
                     }}
                   >
-                    {d.name} — {d.host}:{d.port}
+                    Find phone on network
                   </button>
-                ))}
+                  <button
+                    className="btn"
+                    onClick={async () => {
+                      const next = await api.setCompanionPin(companionPin);
+                      setConfig(next);
+                      setStatusMsg("PIN saved");
+                    }}
+                  >
+                    Save PIN
+                  </button>
+                </div>
+                {discoveredCompanions.length ? (
+                  <div style={{ display: "grid", gap: 6 }}>
+                    {discoveredCompanions.map((d) => (
+                      <button
+                        key={d.id}
+                        className="btn btn-ghost"
+                        style={{ textAlign: "left" }}
+                        onClick={() => {
+                          setCompanionHost(d.host);
+                          setCompanionName(d.name);
+                        }}
+                      >
+                        {d.name} — {d.host}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
-            ) : null}
+            </details>
           </div>
         )}
 
@@ -1051,7 +1048,7 @@ function Nav({
 function EasyLinkStatus({
   connected,
   host,
-  name,
+  name: _name,
   savedHost,
   lastError,
 }: {
@@ -1061,12 +1058,13 @@ function EasyLinkStatus({
   savedHost: string | null;
   lastError: string | null;
 }) {
+  void _name;
   if (connected) {
     return (
       <div className="easy-status easy-status-ok" role="status">
         <div className="easy-status-title">Connected</div>
         <div className="easy-status-detail">
-          Linked to <strong>{name}</strong> at <code>{host}</code>. Hub click-to-call can use this phone.
+          Phone ready at <code>{host}</code>. Hub click-to-call works.
         </div>
       </div>
     );
@@ -1082,9 +1080,9 @@ function EasyLinkStatus({
   if (savedHost) {
     return (
       <div className="easy-status easy-status-warn" role="status">
-        <div className="easy-status-title">Saved phone IP — not linked yet</div>
+        <div className="easy-status-title">Phone IP saved</div>
         <div className="easy-status-detail">
-          Hub can dial via <code>{savedHost}</code> if the phone is Listening. Tap <strong>Connect Easy mode</strong> for a live link.
+          Tap <strong>Connect for phone calls</strong> (IP <code>{savedHost}</code>).
         </div>
       </div>
     );
@@ -1093,7 +1091,7 @@ function EasyLinkStatus({
     <div className="easy-status easy-status-bad" role="status">
       <div className="easy-status-title">Not connected</div>
       <div className="easy-status-detail">
-        On the phone tap Listen for PC, enter that IP here, then Connect Easy mode.
+        On the phone pick Option 1 or 2, then type that IP below.
       </div>
     </div>
   );
