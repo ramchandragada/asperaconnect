@@ -32,8 +32,14 @@ class AsperaAccessibilityService : AccessibilityService() {
                 "home" -> svc.performGlobalAction(GLOBAL_ACTION_HOME)
                 "recents" -> svc.performGlobalAction(GLOBAL_ACTION_RECENTS)
                 "tap" -> {
-                    val x = msg.optDouble("x", 0.0).toFloat()
-                    val y = msg.optDouble("y", 0.0).toFloat()
+                    var x = msg.optDouble("x", 0.0).toFloat()
+                    var y = msg.optDouble("y", 0.0).toFloat()
+                    // Desktop may send normalized 0..1 coordinates.
+                    if (x in 0f..1.5f && y in 0f..1.5f) {
+                        val dm = android.content.res.Resources.getSystem().displayMetrics
+                        x *= dm.widthPixels
+                        y *= dm.heightPixels
+                    }
                     svc.tap(x, y)
                 }
             }

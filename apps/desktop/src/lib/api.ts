@@ -143,6 +143,24 @@ export const api = {
       host: args.host ?? null,
       direct: args.direct ?? true,
     }),
+  companionStartMirror: (host?: string | null) =>
+    invoke<
+      CommandResult<{ host: string; port: number; width: number; height: number; codec: string }>
+    >("companion_start_mirror", { host: host ?? null }),
+  companionStopMirror: (host?: string | null) =>
+    invoke<CommandResult<string>>("companion_stop_mirror", { host: host ?? null }),
+  companionInput: (args: {
+    kind: string;
+    host?: string | null;
+    x?: number | null;
+    y?: number | null;
+  }) =>
+    invoke<CommandResult<string>>("companion_input", {
+      kind: args.kind,
+      host: args.host ?? null,
+      x: args.x ?? null,
+      y: args.y ?? null,
+    }),
   listNotifications: () => invoke<PhoneNotification[]>("list_notifications"),
   markNotificationRead: (id: string) => invoke<void>("mark_notification_read", { id }),
   clearNotifications: () => invoke<void>("clear_notifications"),

@@ -833,6 +833,53 @@ export default function App() {
               </button>
             </div>
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+              <button
+                className="btn btn-primary"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  setError(null);
+                  const res = await api.companionStartMirror(companionHost);
+                  setBusy(false);
+                  if (!res.ok) return setError(res.error ?? null);
+                  setCompanion(await api.getCompanionState());
+                  setStatusMsg(
+                    `Easy mirror started — look for the video window (${res.data?.width ?? "?"}×${res.data?.height ?? "?"}).`,
+                  );
+                }}
+              >
+                Start Easy mirror
+              </button>
+              <button
+                className="btn"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  const res = await api.companionStopMirror(companionHost);
+                  setBusy(false);
+                  if (!res.ok) return setError(res.error ?? null);
+                  setCompanion(await api.getCompanionState());
+                  setStatusMsg(res.data ?? "Easy mirror stopped");
+                }}
+              >
+                Stop Easy mirror
+              </button>
+              <button className="btn" onClick={() => void api.companionInput({ kind: "back", host: companionHost })}>
+                Back
+              </button>
+              <button className="btn" onClick={() => void api.companionInput({ kind: "home", host: companionHost })}>
+                Home
+              </button>
+              <button className="btn" onClick={() => void api.companionInput({ kind: "recents", host: companionHost })}>
+                Recents
+              </button>
+            </div>
+            <p style={{ color: "var(--muted)", margin: 0, fontSize: "0.9rem" }}>
+              Phone: tap <strong>Allow screen capture</strong> once, then Start Easy mirror here.
+              Needs <code>ffplay</code> (<code>sudo apt install ffmpeg</code>) or <code>mpv</code>.
+              Nav buttons need Accessibility enabled on the phone. View-only stream — Pro/scrcpy is still better for full control.
+            </p>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
               <input
                 className="field"
                 style={{ flex: 1, minWidth: 160 }}

@@ -196,7 +196,13 @@ class CompanionService : Service() {
                             .put("type", "helloAck")
                             .put("ok", ok)
                             .put("protocol", PROTOCOL)
-                            .put("capabilities", JSONObject().put("placeCall", true))
+                            .put(
+                                "capabilities",
+                                JSONObject()
+                                    .put("placeCall", true)
+                                    .put("mirror", true)
+                                    .put("input", true),
+                            )
                             .put("reason", if (ok) JSONObject.NULL else "bad_pin")
                             .put("model", Build.MODEL)
                             .put("ip", guessLocalIpv4() ?: JSONObject.NULL)
@@ -235,14 +241,47 @@ class CompanionService : Service() {
                         writer.flush()
                     }
                     "startMirror" -> {
+                        if (!authed) {
+                            writeErr(writer, "not_authed")
+                            continue
+                        }
+                        val dm = resources.displayMetrics
+                        val started = if (MirrorBridge.hasProjection()) {
+                            MirrorBridge.startStreaming(
+                                dm.densityDpi,
+                                dm.widthPixels,
+                                dm.heightPixels,
+                            )
+                        } else {
+                            false
+                        }
                         val ack = JSONObject()
                             .put("type", "mirrorReady")
-                            .put("ok", false)
-                            .put("reason", "mirror_not_enabled_yet")
-                            .put("port", VIDEO_PORT)
+                            .put("ok", started)
+                            .put(
+                                "reason",
+                                if (started) JSONObject.NULL else "need_screen_capture",
+                            )
+                            .put("port", MirrorBridge.VIDEO_PORT)
+                            .put("codec", "h264")
+                            .put("width", MirrorBridge.width)
+                            .put("height", MirrorBridge.height)
                         writer.write(ack.toString())
                         writer.newLine()
                         writer.flush()
+                        if (started) {
+                            ensureForeground("Easy mirror streaming on ${MirrorBridge.VIDEO_PORT}")
+                        }
+                    }
+                    "stopMirror" -> {
+                        MirrorBridge.stopStreaming()
+                        val ack = JSONObject()
+                            .put("type", "mirrorStopped")
+                            .put("ok", true)
+                        writer.write(ack.toString())
+                        writer.newLine()
+                        writer.flush()
+                        ensureForeground("Listening for PC — ${guessLocalIpv4() ?: "Wi‑Fi"}:$PORT")
                     }
                     "input" -> {
                         if (authed) AsperaAccessibilityService.dispatch(msg)
@@ -338,7 +377,7 @@ class CompanionService : Service() {
         const val STATUS_FAILED = "failed"
         const val STATUS_STOPPED = "stopped"
         const val PORT = 17891
-        const val VIDEO_PORT = 17892
+        const val VIDEO_PORT = MirrorBridge.VIDEO_PORT
         const val PROTOCOL = 1
         const val SERVICE_TYPE = "_aspera-connect._tcp."
         private const val NOTIFICATION_ID = 41

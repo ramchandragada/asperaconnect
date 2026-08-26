@@ -27,6 +27,7 @@ pub struct AppState {
     pub companion_reader: Mutex<Option<tokio::task::JoinHandle<()>>>,
     pub notification_fanout: Mutex<Option<tokio::task::JoinHandle<()>>>,
     pub pending_call: Mutex<Option<String>>,
+    pub easy_mirror: std::sync::Mutex<Option<std::process::Child>>,
 }
 
 impl Default for AppState {
@@ -38,6 +39,7 @@ impl Default for AppState {
             companion_reader: Mutex::new(None),
             notification_fanout: Mutex::new(None),
             pending_call: Mutex::new(None),
+            easy_mirror: std::sync::Mutex::new(None),
         }
     }
 }
@@ -649,6 +651,118 @@ async fn companion_place_call(
 }
 
 #[tauri::command]
+async fn companion_start_mirror(
+    state: State<'_, Arc<AppState>>,
+    host: Option<String>,
+) -> Result<CommandResult<aspera_core::companion_net::EasyMirrorReady>, ()> {
+    let cfg = AppConfig::load();
+    let host = host
+        .or(cfg.companion_host.clone())
+        .unwrap_or_default();
+    if host.is_empty() {
+        return Ok(CommandResult::err(AsperaError::Message(
+            "Set companion IP in Easy mode first".into(),
+        )));
+    }
+    // Stop previous Easy mirror player if any.
+    {
+        let mut slot = state.easy_mirror.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(mut child) = slot.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+    Ok(
+        match aspera_core::companion_net::companion_start_mirror(
+            &host,
+            aspera_core::companion::DEFAULT_COMPANION_PORT,
+            cfg.companion_pin.as_deref(),
+        )
+        .await
+        {
+            Ok(info) => {
+                // Brief pause so encoder has a keyframe ready.
+                tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+                match aspera_core::companion_net::spawn_easy_mirror_player(&info.host, info.port) {
+                    Ok(child) => {
+                        *state
+                            .easy_mirror
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner()) = Some(child);
+                        let mut session = state.companion.lock().await;
+                        session.mirroring = true;
+                        session.last_error = None;
+                        CommandResult::ok(info)
+                    }
+                    Err(e) => CommandResult::err(e),
+                }
+            }
+            Err(e) => CommandResult::err(e),
+        },
+    )
+}
+
+#[tauri::command]
+async fn companion_stop_mirror(
+    state: State<'_, Arc<AppState>>,
+    host: Option<String>,
+) -> Result<CommandResult<String>, ()> {
+    let cfg = AppConfig::load();
+    let host = host
+        .or(cfg.companion_host.clone())
+        .unwrap_or_default();
+    {
+        let mut slot = state.easy_mirror.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(mut child) = slot.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+    if !host.is_empty() {
+        let _ = aspera_core::companion_net::companion_stop_mirror(
+            &host,
+            aspera_core::companion::DEFAULT_COMPANION_PORT,
+            cfg.companion_pin.as_deref(),
+        )
+        .await;
+    }
+    let mut session = state.companion.lock().await;
+    session.mirroring = false;
+    Ok(CommandResult::ok("Easy mirror stopped".into()))
+}
+
+#[tauri::command]
+async fn companion_input(
+    host: Option<String>,
+    kind: String,
+    x: Option<f32>,
+    y: Option<f32>,
+) -> CommandResult<String> {
+    let cfg = AppConfig::load();
+    let host = host
+        .or(cfg.companion_host.clone())
+        .unwrap_or_default();
+    if host.is_empty() {
+        return CommandResult::err(AsperaError::Message(
+            "Set companion IP in Easy mode first".into(),
+        ));
+    }
+    match aspera_core::companion_net::companion_input(
+        &host,
+        aspera_core::companion::DEFAULT_COMPANION_PORT,
+        cfg.companion_pin.as_deref(),
+        &kind,
+        x,
+        y,
+    )
+    .await
+    {
+        Ok(()) => CommandResult::ok(format!("sent {kind}")),
+        Err(e) => CommandResult::err(e),
+    }
+}
+
+#[tauri::command]
 async fn open_phone_app(serial: Option<String>) -> CommandResult<String> {
     let adb = match AdbClient::new() {
         Ok(a) => a,
@@ -1202,6 +1316,9 @@ pub fn run() {
             compose_sms,
             place_call,
             companion_place_call,
+            companion_start_mirror,
+            companion_stop_mirror,
+            companion_input,
             open_phone_app,
             parse_call_uri,
             take_pending_call,

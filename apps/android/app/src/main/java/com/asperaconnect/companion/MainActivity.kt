@@ -54,13 +54,13 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_OK && result.data != null) {
                 CompanionService.start(this, pendingPin)
-                val intent = Intent(this, MirrorService::class.java).apply {
-                    putExtra(MirrorService.EXTRA_RESULT_CODE, result.resultCode)
-                    putExtra(MirrorService.EXTRA_RESULT_DATA, result.data)
-                    putExtra(MirrorService.EXTRA_PIN, pendingPin)
-                }
-                ContextCompat.startForegroundService(this, intent)
-                statusText.text = "Mirroring started (experimental)."
+                MirrorService.startWithProjection(this, result.resultCode, result.data!!, pendingPin)
+                statusText.text = "Screen capture on — on the PC tap Start Easy mirror."
+                applyLinkStatus(
+                    CompanionService.lastStatus.ifBlank { CompanionService.STATUS_LISTENING },
+                    CompanionService.linkedPcName,
+                    CompanionService.guessLocalIpv4(),
+                )
             }
         }
 
@@ -97,7 +97,7 @@ class MainActivity : ComponentActivity() {
             CompanionService.start(this, pendingPin)
             val mpm = getSystemService(MediaProjectionManager::class.java)
             projectionLauncher.launch(mpm.createScreenCaptureIntent())
-            statusText.text = "Waiting for capture permission…"
+            statusText.text = "Allow screen capture…"
         }
 
         findViewById<Button>(R.id.accessibilityButton).setOnClickListener {
@@ -106,7 +106,7 @@ class MainActivity : ComponentActivity() {
 
         findViewById<Button>(R.id.stopButton).setOnClickListener {
             CompanionService.stop(this)
-            stopService(Intent(this, MirrorService::class.java))
+            MirrorService.stop(this)
             applyLinkStatus(CompanionService.STATUS_STOPPED, null, CompanionService.guessLocalIpv4())
             statusText.text = getString(R.string.footer)
         }
