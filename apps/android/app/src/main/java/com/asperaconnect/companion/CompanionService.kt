@@ -14,6 +14,7 @@ import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -39,7 +40,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 /**
  * LAN control plane (TCP 17891) — pairing hello + click-to-call.
- * Does not require Developer Options / USB debugging / MediaProjection.
+ * Runs as a foreground service so calls work when the app UI is closed.
  */
 class CompanionService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -48,6 +49,8 @@ class CompanionService : Service() {
     private var nsdManager: NsdManager? = null
     private var registrationListener: NsdManager.RegistrationListener? = null
     private var multicastLock: WifiManager.MulticastLock? = null
+    private var wifiLock: WifiManager.WifiLock? = null
+    private var wakeLock: PowerManager.WakeLock? = null
     private val pinRef = AtomicReference<String?>(null)
     private val linkedClients = AtomicInteger(0)
     private var foregroundReady = false
@@ -57,22 +60,89 @@ class CompanionService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
+                releaseLocks()
+                stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
                 return START_NOT_STICKY
             }
             else -> {
                 pinRef.set(intent?.getStringExtra(EXTRA_PIN))
-                ensureForeground("Listening for PC — ${guessLocalIpv4() ?: "Wi‑Fi"}:$PORT")
+                getSharedPreferences(PREFS, MODE_PRIVATE)
+                    .edit()
+                    .putBoolean(PREF_WANT_LISTEN, true)
+                    .apply()
+                acquireLocks()
+                ensureForeground(
+                    "Ready for PC calls — you can leave this app. ${guessLocalIpv4() ?: ""}",
+                )
                 registerNsd()
                 if (running.compareAndSet(false, true)) {
                     serverJob = scope.launch { serve() }
                 }
                 lastLocalIp = guessLocalIpv4()
-                linkedPcName = null
-                broadcastStatus(STATUS_LISTENING, null)
+                if (linkedClients.get() == 0) {
+                    linkedPcName = null
+                    broadcastStatus(STATUS_LISTENING, null)
+                }
             }
         }
         return START_STICKY
+    }
+
+    private fun acquireLocks() {
+        try {
+            val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            if (wifiLock == null) {
+                @Suppress("DEPRECATION")
+                wifiLock = wifi.createWifiLock(
+                    WifiManager.WIFI_MODE_FULL_HIGH_PERF,
+                    "aspera-companion-wifi",
+                ).apply {
+                    setReferenceCounted(false)
+                    acquire()
+                }
+            }
+            if (multicastLock == null) {
+                multicastLock = wifi.createMulticastLock("aspera-companion-mcast").apply {
+                    setReferenceCounted(false)
+                    acquire()
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "wifi lock: ${e.message}")
+        }
+        try {
+            if (wakeLock == null) {
+                val pm = getSystemService(PowerManager::class.java)
+                wakeLock = pm.newWakeLock(
+                    PowerManager.PARTIAL_WAKE_LOCK,
+                    "aspera:companion",
+                ).apply {
+                    setReferenceCounted(false)
+                    acquire()
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "wake lock: ${e.message}")
+        }
+    }
+
+    private fun releaseLocks() {
+        try {
+            wifiLock?.let { if (it.isHeld) it.release() }
+        } catch (_: Exception) {
+        }
+        wifiLock = null
+        try {
+            multicastLock?.let { if (it.isHeld) it.release() }
+        } catch (_: Exception) {
+        }
+        multicastLock = null
+        try {
+            wakeLock?.let { if (it.isHeld) it.release() }
+        } catch (_: Exception) {
+        }
+        wakeLock = null
     }
 
     private fun ensureForeground(text: String) {
@@ -101,8 +171,11 @@ class CompanionService : Service() {
                 NotificationChannel(
                     channelId,
                     "Aspera Companion",
-                    NotificationManager.IMPORTANCE_LOW,
-                ),
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply {
+                    description = "Keeps click-to-call working when the app is closed"
+                    setShowBadge(false)
+                },
             )
         }
         val open = PendingIntent.getActivity(
@@ -111,12 +184,21 @@ class CompanionService : Service() {
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        val stop = PendingIntent.getService(
+            this,
+            1,
+            Intent(this, CompanionService::class.java).apply { action = ACTION_STOP },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
         return NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Aspera Connect")
+            .setContentTitle("Aspera Connect is running")
             .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setSmallIcon(android.R.drawable.ic_menu_call)
             .setContentIntent(open)
+            .addAction(0, "Stop", stop)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
             .build()
     }
 
@@ -134,12 +216,8 @@ class CompanionService : Service() {
     }
 
     private fun registerNsd() {
+        if (registrationListener != null) return
         try {
-            val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-            multicastLock = wifi.createMulticastLock("aspera-companion").apply {
-                setReferenceCounted(true)
-                acquire()
-            }
             nsdManager = getSystemService(NsdManager::class.java)
             val serviceInfo = NsdServiceInfo().apply {
                 serviceName = "AsperaConnect-${Build.MODEL.replace(" ", "")}"
@@ -359,19 +437,17 @@ class CompanionService : Service() {
         running.set(false)
         linkedClients.set(0)
         serverJob?.cancel()
-        scope.cancel()
         try {
             registrationListener?.let { nsdManager?.unregisterService(it) }
         } catch (_: Exception) {
         }
-        try {
-            multicastLock?.release()
-        } catch (_: Exception) {
-        }
+        registrationListener = null
+        releaseLocks()
         lastLocalIp = null
         linkedPcName = null
         broadcastStatus(STATUS_STOPPED, null)
         foregroundReady = false
+        scope.cancel()
         super.onDestroy()
     }
 
@@ -392,6 +468,8 @@ class CompanionService : Service() {
         const val SERVICE_TYPE = "_aspera-connect._tcp."
         private const val NOTIFICATION_ID = 41
         private const val TAG = "AsperaCompanion"
+        private const val PREFS = "aspera_companion"
+        private const val PREF_WANT_LISTEN = "want_listen"
 
         @Volatile
         var lastLocalIp: String? = null
@@ -415,6 +493,10 @@ class CompanionService : Service() {
         }
 
         fun stop(context: Context) {
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean(PREF_WANT_LISTEN, false)
+                .apply()
             val intent = Intent(context, CompanionService::class.java).apply {
                 action = ACTION_STOP
             }

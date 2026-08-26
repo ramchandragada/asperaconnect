@@ -7,8 +7,11 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -60,9 +63,13 @@ class MainActivity : ComponentActivity() {
                 wantMirrorAfterCalls = false
                 launchScreenCapture()
             } else {
-                statusText.text = "Ready — on the PC open Easy mode and connect."
+                statusText.text = "Ready — you can leave this app. Keep the notification."
+                maybeAskBatteryOpt()
             }
         }
+
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     private val projectionLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -93,6 +100,7 @@ class MainActivity : ComponentActivity() {
         refreshIp()
         applyLinkStatus(CompanionService.lastStatus, CompanionService.linkedPcName, CompanionService.lastLocalIp)
         refreshCaptureUi(MirrorBridge.hasProjection() || MirrorBridge.isStreaming())
+        ensureNotificationPermission()
 
         // Option 1 — Phone calls
         findViewById<Button>(R.id.listenButton).setOnClickListener {
@@ -126,8 +134,9 @@ class MainActivity : ComponentActivity() {
         refreshIp()
         val ip = CompanionService.guessLocalIpv4() ?: "…"
         applyLinkStatus(CompanionService.STATUS_LISTENING, null, ip)
-        statusText.text = "Tell the PC this IP: $ip"
+        statusText.text = "Ready — you can leave this app. PC uses IP $ip"
         ensureCallPermission(thenMirror = false)
+        maybeAskBatteryOpt()
     }
 
     private fun startCallsAndMirror() {
@@ -138,6 +147,7 @@ class MainActivity : ComponentActivity() {
         applyLinkStatus(CompanionService.STATUS_LISTENING, null, ip)
         statusText.text = "Next: allow screen share when Android asks."
         ensureCallPermission(thenMirror = true)
+        maybeAskBatteryOpt()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -213,8 +223,8 @@ class MainActivity : ComponentActivity() {
                 linkTitle.setTextColor(ContextCompat.getColor(this, R.color.accent))
                 linkTitle.text = getString(R.string.status_linked_title)
                 linkDetail.setTextColor(ContextCompat.getColor(this, R.color.ink_dim))
-                linkDetail.text = "PC can place calls${pcName?.let { " ($it)" } ?: ""}."
-                statusText.text = "Connected — leave this app running."
+                linkDetail.text = "PC can place calls${pcName?.let { " ($it)" } ?: ""}. You can leave this app."
+                statusText.text = "Connected — leave the app open in the background (notification stays)."
             }
             CompanionService.STATUS_LISTENING -> {
                 linkBanner.setBackgroundResource(R.drawable.bg_status_warn)
@@ -224,8 +234,8 @@ class MainActivity : ComponentActivity() {
                 linkTitle.setTextColor(ContextCompat.getColor(this, R.color.amber))
                 linkTitle.text = getString(R.string.status_listening_title)
                 linkDetail.setTextColor(ContextCompat.getColor(this, R.color.ink_dim))
-                linkDetail.text = "On the PC, open Easy mode and enter IP ${ip ?: "…"}"
-                statusText.text = "Waiting for PC…"
+                linkDetail.text = "On the PC enter IP ${ip ?: "…"}. You can leave this app — keep the notification."
+                statusText.text = "Waiting for PC — notification means it is still running."
             }
             CompanionService.STATUS_FAILED -> {
                 linkBanner.setBackgroundResource(R.drawable.bg_status_bad)
@@ -272,6 +282,36 @@ class MainActivity : ComponentActivity() {
         } else if (thenMirror) {
             wantMirrorAfterCalls = false
             launchScreenCapture()
+        }
+    }
+
+    private fun ensureNotificationPermission() {
+        if (Build.VERSION.SDK_INT < 33) return
+        val granted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.POST_NOTIFICATIONS,
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!granted) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    /** OnePlus / aggressive OEMs kill background apps unless battery opt is off. */
+    private fun maybeAskBatteryOpt() {
+        if (Build.VERSION.SDK_INT < 23) return
+        try {
+            val pm = getSystemService(PowerManager::class.java)
+            if (pm.isIgnoringBatteryOptimizations(packageName)) return
+            startActivity(
+                Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:$packageName")
+                },
+            )
+        } catch (_: Exception) {
+            try {
+                startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+            } catch (_: Exception) {
+            }
         }
     }
 }
