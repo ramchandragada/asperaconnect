@@ -151,6 +151,32 @@ textarea {
   background: var(--accent-2);
 }
 
+.nav-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.nav-badge-ok {
+  color: #062816;
+  background: var(--accent);
+}
+
+.nav-badge-warn {
+  color: #2a1c00;
+  background: var(--accent-2);
+}
+
+.nav-badge-bad {
+  color: #fff;
+  background: color-mix(in srgb, var(--danger) 85%, #400);
+}
+
 .easy-status {
   border-radius: 14px;
   padding: 0.9rem 1rem;

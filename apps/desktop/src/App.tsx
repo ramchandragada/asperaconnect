@@ -424,7 +424,13 @@ export default function App() {
           label={t(locale, "companion")}
           active={view === "companion"}
           onClick={() => setView("companion")}
-          status={companion?.connected ? "ok" : config?.companionHost ? "warn" : undefined}
+          badge={
+            companion?.connected
+              ? { text: "Linked", tone: "ok" }
+              : config?.companionHost
+                ? { text: "Saved", tone: "warn" }
+                : { text: "Off", tone: "bad" }
+          }
         />
         <Nav icon={<Radio size={18} />} label={t(locale, "kde")} active={view === "kde"} onClick={() => { setView("kde"); void api.kdeStatus().then(setKde); }} />
         <Nav icon={<Settings size={18} />} label={t(locale, "settings")} active={view === "settings"} onClick={() => setView("settings")} />
@@ -972,19 +978,23 @@ function Nav({
   label,
   active,
   onClick,
-  status,
+  badge,
 }: {
   icon: ReactNode;
   label: string;
   active: boolean;
   onClick: () => void;
-  status?: "ok" | "warn";
+  badge?: { text: string; tone: "ok" | "warn" | "bad" };
 }) {
   return (
     <button className="nav-item" data-active={active} onClick={onClick}>
       {icon}
       <span style={{ flex: 1 }}>{label}</span>
-      {status ? <span className={`status-dot status-dot-${status}`} aria-hidden /> : null}
+      {badge ? (
+        <span className={`nav-badge nav-badge-${badge.tone}`} aria-label={`Easy mode ${badge.text}`}>
+          {badge.text}
+        </span>
+      ) : null}
     </button>
   );
 }
