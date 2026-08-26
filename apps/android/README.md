@@ -3,7 +3,7 @@
 Kotlin + Jetpack Compose app for Linux Easy mode:
 
 1. **CompanionService** — LAN listener on TCP **17891** (no Developer Options)
-2. **placeCall** from the PC / Hub over Wi‑Fi
+2. **placeCall** from the PC / Hub over the office LAN (Wi‑Fi phone + wired PC OK)
 3. Optional **MediaProjection** mirror + **AccessibilityService** for taps
 4. Optional **NotificationListener** (not required for company Hub users)
 

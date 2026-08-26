@@ -159,7 +159,7 @@ class MainActivity : ComponentActivity() {
                 linkTitle.text = getString(R.string.status_listening_title)
                 linkDetail.setTextColor(ContextCompat.getColor(this, R.color.ink_dim))
                 linkDetail.text =
-                    "On the PC: Aspera Connect → Easy mode → Connect. IP ${ip ?: "…"}"
+                    "On the PC: Aspera Connect → Easy mode → Connect. Use this IP (${ip ?: "…"}). Phone Wi‑Fi + PC wired LAN is fine if they can reach each other."
                 statusText.text = "Listening on ${ip ?: "…"}:${CompanionService.PORT}"
             }
             CompanionService.STATUS_FAILED -> {
@@ -190,7 +190,7 @@ class MainActivity : ComponentActivity() {
     private fun refreshIp() {
         val ip = CompanionService.lastLocalIp
             ?: CompanionService.guessLocalIpv4()
-            ?: "Join Wi‑Fi"
+            ?: "Join office Wi‑Fi / LAN"
         ipText.text = ip
     }
 

@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">Aspera Connect</string>
     <string name="tagline">Easy mode for Linux</string>
-    <string name="hero_support">Same Wi‑Fi as your PC. No Developer Options. Hub click‑to‑call when you Listen.</string>
+    <string name="hero_support">Phone and PC must reach each other on the office network (Wi‑Fi phone + wired PC is fine). No Developer Options. Hub click‑to‑call when you Listen.</string>
     <string name="status_idle_title">Ready when you are</string>
     <string name="status_idle_detail">Tap Listen so your PC can reach this phone.</string>
     <string name="status_listening_title">Listening for PC</string>

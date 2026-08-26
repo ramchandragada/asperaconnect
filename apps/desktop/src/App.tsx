@@ -767,7 +767,9 @@ export default function App() {
             />
             <p style={{ color: "var(--muted)", marginTop: 0 }}>
               Easy mode — no Developer Options. Install the companion APK (
-              <code>apps/android</code>), tap <strong>Listen for PC</strong>, then connect here on the same Wi‑Fi.
+              <code>apps/android</code>), tap <strong>Listen for PC</strong>, then connect here.
+              Phone and PC must be on the <strong>same office network</strong> so they can reach each other
+              (Wi‑Fi phone + wired LAN PC is fine — they do not need the same Wi‑Fi SSID).
               Hub / Zoho <code>tel:</code> calls use this path when USB debugging is off.
             </p>
             <input className="field" value={companionName} onChange={(e) => setCompanionName(e.target.value)} placeholder="Phone name" />

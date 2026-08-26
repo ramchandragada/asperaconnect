@@ -1,6 +1,11 @@
 # Easy mode (companion APK)
 
-No Developer Options / USB debugging required. Same Wi‑Fi as the Linux PC.
+No Developer Options / USB debugging required.
+
+Phone and PC must be on the **same office network** so they can reach each other
+(typical: phone on office Wi‑Fi, PC on wired LAN). They do **not** need the same
+Wi‑Fi SSID. If IT uses guest Wi‑Fi client isolation or separate VLANs, Easy mode
+won’t connect until both sides share a routable path.
 
 ## What works today
 
