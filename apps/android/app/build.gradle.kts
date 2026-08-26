@@ -15,9 +15,22 @@ android {
         versionName = "0.3.4"
     }
 
+    signingConfigs {
+        // Sideload / CI: sign release with the Android debug keystore so
+        // `adb install` works without a private release key.
+        create("sideload") {
+            val home = System.getProperty("user.home")
+            storeFile = file("$home/.android/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("sideload")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
