@@ -195,7 +195,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:gravity="center"
-                android:text="v0.3.4"
+                android:text="v0.3.5"
                 android:textColor="@color/muted"
                 android:textSize="11sp" />
         </LinearLayout>

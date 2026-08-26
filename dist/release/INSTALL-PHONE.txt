@@ -1,15 +1,15 @@
 Aspera Connect companion — phone install
 ========================================
 
-Version: 0.3.4 (signed, light theme + hang up)
+Version: 0.3.5 (signed v1+v2+v3)
 
-  curl -L -o /tmp/AsperaConnect-0.3.4.apk \
-    "https://raw.githubusercontent.com/ramchandragada/asperaconnect/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-0.3.4.apk"
-  adb install -r /tmp/AsperaConnect-0.3.4.apk
+  rm -f /tmp/AsperaConnect-0.3.5.apk
+  curl -L --http1.1 -o /tmp/AsperaConnect-0.3.5.apk \
+    "https://raw.githubusercontent.com/ramchandragada/asperaconnect/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-0.3.5.apk"
+  # expect sha256 6642126c59e3474fc931990c5e6737f8cbba30e25aae3ef35d586bb589841b96
+  sha256sum /tmp/AsperaConnect-0.3.5.apk
+  adb install -t /tmp/AsperaConnect-0.3.5.apk
 
-If install fails with UPDATE_INCOMPATIBLE, uninstall the old app first:
-  adb uninstall com.asperaconnect.companion
-  adb install /tmp/AsperaConnect-0.3.4.apk
-
-Then open Aspera Connect → allow Phone / Answer phone calls / Contacts → Start for calls.
-Confirm version shows v0.3.4.
+If that fails:
+  adb uninstall com.asperaconnect.companion || true
+  adb install -r -t /tmp/AsperaConnect-0.3.5.apk

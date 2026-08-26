@@ -11,19 +11,17 @@ android {
         applicationId = "com.asperaconnect.companion"
         minSdk = 26
         targetSdk = 35
-        versionCode = 13
-        versionName = "0.3.4"
+        versionCode = 14
+        versionName = "0.3.5"
     }
 
     signingConfigs {
-        // Sideload / CI: sign release with the Android debug keystore so
-        // `adb install` works without a private release key.
         create("sideload") {
-            val home = System.getProperty("user.home")
-            storeFile = file("$home/.android/debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+            // Checked-in sideload key — public demo builds only (not Play Store).
+            storeFile = rootProject.file("aspera-sideload.keystore")
+            storePassword = "aspera-connect"
+            keyAlias = "aspera"
+            keyPassword = "aspera-connect"
         }
     }
 
@@ -53,3 +51,4 @@ dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 }
+
