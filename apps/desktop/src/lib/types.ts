@@ -177,3 +177,27 @@ export interface ContactsCache {
   host?: string | null;
   contacts: PhoneContact[];
 }
+
+export type CallOutcome = "dialed" | "ended" | "failed";
+
+export interface CallHistoryEntry {
+  id: string;
+  name: string;
+  number: string;
+  at: string;
+  outcome: CallOutcome;
+}
+
+export interface CallHistory {
+  entries: CallHistoryEntry[];
+}
+
+export interface FavoriteContact {
+  id: string;
+  name: string;
+  number: string;
+}
+
+export interface FavoritesStore {
+  favorites: FavoriteContact[];
+}

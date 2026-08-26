@@ -709,6 +709,53 @@ fn load_cached_contacts() -> aspera_core::ContactsCache {
 }
 
 #[tauri::command]
+fn load_call_history() -> aspera_core::CallHistory {
+    aspera_core::CallHistory::load()
+}
+
+#[tauri::command]
+fn record_call_history(
+    name: String,
+    number: String,
+    outcome: String,
+) -> CommandResult<aspera_core::CallHistory> {
+    let outcome = match outcome.as_str() {
+        "ended" => aspera_core::CallOutcome::Ended,
+        "failed" => aspera_core::CallOutcome::Failed,
+        _ => aspera_core::CallOutcome::Dialed,
+    };
+    match aspera_core::CallHistory::record(&name, &number, outcome) {
+        Ok(h) => CommandResult::ok(h),
+        Err(e) => CommandResult::err(e),
+    }
+}
+
+#[tauri::command]
+fn clear_call_history() -> CommandResult<aspera_core::CallHistory> {
+    match aspera_core::CallHistory::clear() {
+        Ok(h) => CommandResult::ok(h),
+        Err(e) => CommandResult::err(e),
+    }
+}
+
+#[tauri::command]
+fn load_favorites() -> aspera_core::FavoritesStore {
+    aspera_core::FavoritesStore::load()
+}
+
+#[tauri::command]
+fn toggle_favorite(
+    id: String,
+    name: String,
+    number: String,
+) -> CommandResult<aspera_core::FavoritesStore> {
+    match aspera_core::FavoritesStore::toggle(&id, &name, &number) {
+        Ok(s) => CommandResult::ok(s),
+        Err(e) => CommandResult::err(e),
+    }
+}
+
+#[tauri::command]
 async fn companion_start_mirror(
     state: State<'_, Arc<AppState>>,
     host: Option<String>,
@@ -1377,6 +1424,11 @@ pub fn run() {
             companion_end_call,
             sync_phone_contacts,
             load_cached_contacts,
+            load_call_history,
+            record_call_history,
+            clear_call_history,
+            load_favorites,
+            toggle_favorite,
             companion_start_mirror,
             companion_stop_mirror,
             companion_input,

@@ -1,11 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   AppConfig,
+  CallHistory,
   CommandResult,
   CompanionDevice,
   CompanionSessionState,
   ContactsCache,
   Device,
+  FavoritesStore,
   KdeStatus,
   MirrorHandle,
   MirrorProfile,
@@ -137,6 +139,13 @@ export const api = {
   syncPhoneContacts: (host?: string | null) =>
     invoke<CommandResult<ContactsCache>>("sync_phone_contacts", { host: host ?? null }),
   loadCachedContacts: () => invoke<ContactsCache>("load_cached_contacts"),
+  loadCallHistory: () => invoke<CallHistory>("load_call_history"),
+  recordCallHistory: (name: string, number: string, outcome: "dialed" | "ended" | "failed") =>
+    invoke<CommandResult<CallHistory>>("record_call_history", { name, number, outcome }),
+  clearCallHistory: () => invoke<CommandResult<CallHistory>>("clear_call_history"),
+  loadFavorites: () => invoke<FavoritesStore>("load_favorites"),
+  toggleFavorite: (id: string, name: string, number: string) =>
+    invoke<CommandResult<FavoritesStore>>("toggle_favorite", { id, name, number }),
   companionPlaceCall: (args: {
     number: string;
     host?: string | null;

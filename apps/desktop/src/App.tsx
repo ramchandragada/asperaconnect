@@ -1,18 +1,21 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { BookUser, HelpCircle, Settings, Smartphone } from "lucide-react";
+import { BookUser, HelpCircle, Settings, Smartphone, Star } from "lucide-react";
 import { api } from "./lib/api";
 import { locales, t } from "./lib/i18n";
 import type {
   AppConfig,
   AppView,
+  CallHistory,
   CompanionDevice,
   CompanionSessionState,
   ContactsCache,
+  FavoritesStore,
   UserFacingError,
 } from "./lib/types";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { FirstRunWizard } from "./components/FirstRunWizard";
+import asperaLogo from "./assets/aspera-logo.png";
 import "./styles/app.css";
 
 export default function App() {
@@ -27,6 +30,8 @@ export default function App() {
   const [companionPin, setCompanionPin] = useState("");
   const [discoveredCompanions, setDiscoveredCompanions] = useState<CompanionDevice[]>([]);
   const [contactsCache, setContactsCache] = useState<ContactsCache>({ contacts: [] });
+  const [callHistory, setCallHistory] = useState<CallHistory>({ entries: [] });
+  const [favorites, setFavorites] = useState<FavoritesStore>({ favorites: [] });
   const [contactQuery, setContactQuery] = useState("");
   const [activeCall, setActiveCall] = useState<{
     name: string;
@@ -36,6 +41,11 @@ export default function App() {
   } | null>(null);
 
   const locale = config?.locale ?? "en";
+
+  const favoriteIds = useMemo(
+    () => new Set(favorites.favorites.map((f) => f.id)),
+    [favorites.favorites],
+  );
 
   const filteredContacts = useMemo(() => {
     const q = contactQuery.trim().toLowerCase();
@@ -48,9 +58,16 @@ export default function App() {
   }, [contactsCache.contacts, contactQuery]);
 
   const bootstrap = useCallback(async () => {
-    const [cfg, cached] = await Promise.all([api.getConfig(), api.loadCachedContacts()]);
+    const [cfg, cached, history, favs] = await Promise.all([
+      api.getConfig(),
+      api.loadCachedContacts(),
+      api.loadCallHistory(),
+      api.loadFavorites(),
+    ]);
     setConfig(cfg);
     setContactsCache(cached ?? { contacts: [] });
+    setCallHistory(history ?? { entries: [] });
+    setFavorites(favs ?? { favorites: [] });
     setCompanionPin(cfg.companionPin ?? "");
     if (cfg.companionHost) setCompanionHost(cfg.companionHost);
     if (cfg.companionName) setCompanionName(cfg.companionName);
@@ -101,6 +118,8 @@ export default function App() {
         detail: res.error?.message ?? "Call failed",
       });
       setError(res.error ?? null);
+      const hist = await api.recordCallHistory(label, number, "failed");
+      if (hist.ok && hist.data) setCallHistory(hist.data);
       return;
     }
     setActiveCall({
@@ -110,6 +129,8 @@ export default function App() {
       detail: res.data ?? "Ringing on your phone",
     });
     setStatusMsg(null);
+    const hist = await api.recordCallHistory(label, number, "dialed");
+    if (hist.ok && hist.data) setCallHistory(hist.data);
   }, []);
 
   useEffect(() => {
@@ -194,22 +215,31 @@ export default function App() {
       setError(res.error ?? null);
       return;
     }
-    setActiveCall((prev) =>
-      prev
-        ? {
-            name: prev.name,
-            number: prev.number,
-            phase: "ended",
-            detail: res.data ?? "Call ended",
-          }
-        : {
-            name: "Call",
-            number: "",
-            phase: "ended",
-            detail: res.data ?? "Call ended",
-          },
-    );
+    const name = activeCall?.name ?? "Call";
+    const number = activeCall?.number ?? "";
+    setActiveCall({
+      name,
+      number,
+      phase: "ended",
+      detail: res.data ?? "Call ended",
+    });
+    if (number) {
+      const hist = await api.recordCallHistory(name, number, "ended");
+      if (hist.ok && hist.data) setCallHistory(hist.data);
+    }
     window.setTimeout(() => setActiveCall(null), 2500);
+  }
+
+  async function toggleFavorite(id: string, name: string, number: string) {
+    const res = await api.toggleFavorite(id, name, number);
+    if (!res.ok) return setError(res.error ?? null);
+    setFavorites(res.data ?? { favorites: [] });
+  }
+
+  async function clearHistory() {
+    const res = await api.clearCallHistory();
+    if (!res.ok) return setError(res.error ?? null);
+    setCallHistory(res.data ?? { entries: [] });
   }
 
   if (!config) {
@@ -243,11 +273,9 @@ export default function App() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div style={{ padding: "0.35rem 0.85rem 1rem" }}>
-          <div className="brand" style={{ fontSize: "1.35rem" }}>
-            {t(locale, "brand")}
-          </div>
-          <div className="sidebar-tagline">Click-to-call</div>
+        <div className="brand-block">
+          <img src={asperaLogo} alt="Aspera" className="brand-logo" />
+          <div className="brand-sub">Connect · Click-to-call</div>
         </div>
         <Nav
           icon={<Smartphone size={18} />}
@@ -293,12 +321,10 @@ export default function App() {
 
       <main style={{ padding: "1.25rem 1.5rem", overflow: "auto", minWidth: 0 }}>
         <header style={{ marginBottom: "1rem" }}>
-          <div className="brand" style={{ fontSize: "1.8rem" }}>
-            {heading}
-          </div>
+          <div className="page-title">{heading}</div>
           <div style={{ color: "var(--muted)" }}>
             {view === "contacts"
-              ? "Search synced phone contacts and dial from the PC."
+              ? "Search contacts, dial favorites, or redial from Recents."
               : "PC → phone dialing. Nothing else."}
           </div>
         </header>
@@ -322,7 +348,7 @@ export default function App() {
             className={`call-banner call-banner-${activeCall.phase} fade-in`}
             role="status"
             aria-live="polite"
-            style={{ marginBottom: "1rem", maxWidth: 640 }}
+            style={{ marginBottom: "1rem", maxWidth: 960 }}
           >
             <div className="call-banner-pulse" aria-hidden />
             <div className="call-banner-body">
@@ -499,71 +525,144 @@ export default function App() {
         )}
 
         {view === "contacts" && (
-          <div className="panel fade-in" style={{ padding: "1.25rem", display: "grid", gap: "0.85rem", maxWidth: 640 }}>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <input
-                className="field"
-                style={{ flex: 1, minWidth: 180 }}
-                value={contactQuery}
-                onChange={(e) => setContactQuery(e.target.value)}
-                placeholder="Search name or number"
-                disabled={activeCall?.phase === "dialing"}
-              />
-              <button
-                className="btn btn-primary"
-                disabled={busy || !companionHost.trim() || activeCall?.phase === "dialing"}
-                onClick={() => void syncContacts()}
-              >
-                Sync from phone
-              </button>
-            </div>
-            <p style={{ color: "var(--muted)", margin: 0, fontSize: "0.85rem" }}>
-              {(contactsCache.contacts?.length ?? 0) === 0
-                ? "No contacts yet — Connect for phone calls (auto-syncs) or tap Sync from phone."
-                : `${contactsCache.contacts.length} contact${contactsCache.contacts.length === 1 ? "" : "s"} cached${
-                    contactsCache.syncedAt
-                      ? ` · last sync ${new Date(contactsCache.syncedAt).toLocaleString()}`
-                      : ""
-                  }`}
-            </p>
-            <div style={{ display: "grid", gap: 6, maxHeight: "calc(100vh - 320px)", overflow: "auto" }}>
-              {filteredContacts.map((c) => {
-                const primary = c.phones[0] ?? "";
-                const isThis =
-                  activeCall &&
-                  (activeCall.number === primary || activeCall.name === c.name);
-                const dialingThis = isThis && activeCall.phase === "dialing";
-                return (
-                  <div
-                    key={c.id}
-                    className={dialingThis ? "contact-row contact-row-calling" : "contact-row"}
-                    style={{
-                      display: "flex",
-                      gap: 10,
-                      alignItems: "center",
-                      padding: "0.65rem 0.75rem",
-                      borderBottom: "1px solid var(--line)",
-                    }}
-                  >
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600 }}>{c.name}</div>
-                      <div style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
-                        {c.phones.join(" · ")}
-                      </div>
-                    </div>
-                    <button
-                      className="btn btn-primary"
-                      disabled={busy || !primary || activeCall?.phase === "dialing"}
-                      onClick={() => void callNumber(primary, c.name)}
+          <div className="contacts-layout fade-in">
+            <div className="panel contacts-main" style={{ padding: "1.25rem", display: "grid", gap: "0.85rem" }}>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <input
+                  className="field"
+                  style={{ flex: 1, minWidth: 180 }}
+                  value={contactQuery}
+                  onChange={(e) => setContactQuery(e.target.value)}
+                  placeholder="Search name or number"
+                  disabled={activeCall?.phase === "dialing"}
+                />
+                <button
+                  className="btn btn-primary"
+                  disabled={busy || !companionHost.trim() || activeCall?.phase === "dialing"}
+                  onClick={() => void syncContacts()}
+                >
+                  Sync from phone
+                </button>
+              </div>
+              <p style={{ color: "var(--muted)", margin: 0, fontSize: "0.85rem" }}>
+                {(contactsCache.contacts?.length ?? 0) === 0
+                  ? "No contacts yet — Connect for phone calls (auto-syncs) or tap Sync from phone."
+                  : `${contactsCache.contacts.length} contact${contactsCache.contacts.length === 1 ? "" : "s"} cached${
+                      contactsCache.syncedAt
+                        ? ` · last sync ${new Date(contactsCache.syncedAt).toLocaleString()}`
+                        : ""
+                    }`}
+              </p>
+              <div className="contacts-list">
+                {filteredContacts.map((c) => {
+                  const primary = c.phones[0] ?? "";
+                  const isThis =
+                    activeCall &&
+                    (activeCall.number === primary || activeCall.name === c.name);
+                  const dialingThis = isThis && activeCall.phase === "dialing";
+                  const starred = favoriteIds.has(c.id);
+                  return (
+                    <div
+                      key={c.id}
+                      className={dialingThis ? "contact-row contact-row-calling" : "contact-row"}
                     >
-                      {dialingThis ? "Calling…" : "Call"}
-                    </button>
+                      <button
+                        type="button"
+                        className={`star-btn${starred ? " is-on" : ""}`}
+                        aria-label={starred ? "Remove favorite" : "Add favorite"}
+                        title={starred ? "Remove favorite" : "Add favorite"}
+                        disabled={!primary}
+                        onClick={() => void toggleFavorite(c.id, c.name, primary)}
+                      >
+                        <Star size={16} fill={starred ? "currentColor" : "none"} />
+                      </button>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600 }}>{c.name}</div>
+                        <div style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+                          {c.phones.join(" · ")}
+                        </div>
+                      </div>
+                      <button
+                        className="btn btn-primary"
+                        disabled={busy || !primary || activeCall?.phase === "dialing"}
+                        onClick={() => void callNumber(primary, c.name)}
+                      >
+                        {dialingThis ? "Calling…" : "Call"}
+                      </button>
+                    </div>
+                  );
+                })}
+                {filteredContacts.length === 0 && (contactsCache.contacts?.length ?? 0) > 0 ? (
+                  <p style={{ color: "var(--muted)" }}>No matches for “{contactQuery}”.</p>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="contacts-side">
+              <section className="panel side-panel">
+                <div className="side-panel-head">
+                  <h3>Favorites</h3>
+                </div>
+                {favorites.favorites.length === 0 ? (
+                  <p className="side-empty">Star contacts in the list to pin them here.</p>
+                ) : (
+                  <div className="side-list">
+                    {favorites.favorites.map((f) => (
+                      <div key={f.id} className="side-row">
+                        <div className="side-row-text">
+                          <strong>{f.name}</strong>
+                          <span>{f.number}</span>
+                        </div>
+                        <button
+                          className="btn btn-primary btn-compact"
+                          disabled={busy || activeCall?.phase === "dialing"}
+                          onClick={() => void callNumber(f.number, f.name)}
+                        >
+                          Call
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                );
-              })}
-              {filteredContacts.length === 0 && (contactsCache.contacts?.length ?? 0) > 0 ? (
-                <p style={{ color: "var(--muted)" }}>No matches for “{contactQuery}”.</p>
-              ) : null}
+                )}
+              </section>
+
+              <section className="panel side-panel">
+                <div className="side-panel-head">
+                  <h3>Recents</h3>
+                  {callHistory.entries.length > 0 ? (
+                    <button className="btn btn-ghost btn-compact" onClick={() => void clearHistory()}>
+                      Clear
+                    </button>
+                  ) : null}
+                </div>
+                {callHistory.entries.length === 0 ? (
+                  <p className="side-empty">Calls you place from Aspera appear here.</p>
+                ) : (
+                  <div className="side-list">
+                    {callHistory.entries.slice(0, 30).map((e) => (
+                      <div key={e.id} className="side-row">
+                        <div className="side-row-text">
+                          <strong>{e.name || e.number}</strong>
+                          <span>
+                            {e.number}
+                            {" · "}
+                            {formatRecentTime(e.at)}
+                            {" · "}
+                            {e.outcome}
+                          </span>
+                        </div>
+                        <button
+                          className="btn btn-compact"
+                          disabled={busy || !e.number || activeCall?.phase === "dialing"}
+                          onClick={() => void callNumber(e.number, e.name)}
+                        >
+                          Call
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
             </div>
           </div>
         )}
@@ -596,13 +695,18 @@ export default function App() {
             <h3 style={{ marginTop: 0 }}>Click-to-call</h3>
             <ol>
               <li>
-                Phone: open Aspera Connect → <strong>Start for calls</strong> (allow Phone + Contacts).
+                Phone: open Aspera Connect → <strong>Start for calls</strong> (allow Phone + Answer calls +
+                Contacts).
               </li>
               <li>
                 PC: enter the phone IP → <strong>Connect for phone calls</strong> (auto-syncs contacts).
               </li>
               <li>
-                Open <strong>Contacts</strong>, search, tap <strong>Call</strong>.
+                Open <strong>Contacts</strong>, search, tap <strong>Call</strong> — or use Favorites /
+                Recents.
+              </li>
+              <li>
+                Use <strong>Hang up</strong> on the banner to end the call from the PC.
               </li>
               <li>
                 Optional: register <code>tel:</code> for Zoho / browser links.
@@ -617,6 +721,21 @@ export default function App() {
       </main>
     </div>
   );
+}
+
+function formatRecentTime(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
 }
 
 function Nav({

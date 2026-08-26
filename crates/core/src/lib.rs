@@ -1,6 +1,7 @@
 //! Aspera Connect core — ADB, scrcpy, pairing, errors, and preferences.
 
 pub mod adb;
+pub mod call_prefs;
 pub mod contacts;
 pub mod companion;
 pub mod companion_net;
@@ -18,6 +19,9 @@ pub mod telephony;
 pub mod tools;
 
 pub use adb::{AdbClient, PhoneApp};
+pub use call_prefs::{
+    CallHistory, CallHistoryEntry, CallOutcome, FavoriteContact, FavoritesStore,
+};
 pub use contacts::{ContactsCache, PhoneContact};
 pub use config::{AppConfig, MirrorProfile, MirrorProfileId};
 pub use device::{Device, DeviceState};
