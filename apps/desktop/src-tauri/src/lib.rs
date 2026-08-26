@@ -46,10 +46,7 @@ impl Default for AppState {
 
 fn emit_call_request(app: &AppHandle, number: &str) {
     let _ = app.emit("aspera://call", number);
-    if let Some(w) = app.get_webview_window("main") {
-        let _ = w.show();
-        let _ = w.set_focus();
-    }
+    show_main_window(app);
 }
 
 fn handle_cli_call_args(app: &AppHandle, state: &AppState, args: &[String]) {
@@ -1199,37 +1196,33 @@ async fn companion_hello(
     )
 }
 
+fn show_main_window(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+    }
+}
+
 fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     let show = MenuItem::with_id(app, "show", "Show Aspera Connect", true, None::<&str>)?;
-    let mirror = MenuItem::with_id(app, "mirror", "Mirror last device", true, None::<&str>)?;
     let call_clip =
         MenuItem::with_id(app, "call_clipboard", "Call number from clipboard", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&show, &mirror, &call_clip, &quit])?;
+    let quit = MenuItem::with_id(app, "quit", "Exit", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&show, &call_clip, &quit])?;
 
-    let _tray = TrayIconBuilder::new()
+    // Keep the TrayIcon alive — dropping it removes the icon from the system tray.
+    let tray = TrayIconBuilder::with_id("aspera-tray")
         .icon(app.default_window_icon().unwrap().clone())
         .menu(&menu)
-        .tooltip("Aspera Connect")
+        .tooltip("Aspera Connect — click-to-call")
+        .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "quit" => app.exit(0),
-            "show" => {
-                if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.show();
-                    let _ = w.set_focus();
-                }
-            }
-            "mirror" => {
-                if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.show();
-                    let _ = w.set_focus();
-                    let _ = w.emit("tray://mirror-last", ());
-                }
-            }
+            "show" => show_main_window(app),
             "call_clipboard" => {
+                show_main_window(app);
                 if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.show();
-                    let _ = w.set_focus();
                     let _ = w.emit("tray://call-clipboard", ());
                 }
             }
@@ -1242,14 +1235,11 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
                 ..
             } = event
             {
-                let app = tray.app_handle();
-                if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.show();
-                    let _ = w.set_focus();
-                }
+                show_main_window(tray.app_handle());
             }
         })
         .build(app)?;
+    app.manage(tray);
     Ok(())
 }
 
@@ -1287,6 +1277,13 @@ pub fn run() {
             let args: Vec<String> = std::env::args().collect();
             handle_cli_call_args(app.handle(), state.as_ref(), &args);
             Ok(())
+        })
+        // Closing the window only hides it — process + phone link stay alive in the tray.
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let _ = window.hide();
+                api.prevent_close();
+            }
         })
         .invoke_handler(tauri::generate_handler![
             get_tools,
@@ -1346,6 +1343,14 @@ pub fn run() {
             install_apk,
             push_files,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Aspera Connect");
+        .build(tauri::generate_context!())
+        .expect("error while building Aspera Connect")
+        .run(|_app_handle, event| {
+            // Don't quit when the last window is hidden; only Exit from the tray menu.
+            if let tauri::RunEvent::ExitRequested { api, code, .. } = event {
+                if code.is_none() {
+                    api.prevent_exit();
+                }
+            }
+        });
 }

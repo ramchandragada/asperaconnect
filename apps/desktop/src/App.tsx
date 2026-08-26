@@ -67,6 +67,7 @@ export default function App() {
 
   useEffect(() => {
     let unlistenCall: (() => void) | undefined;
+    let unlistenClip: (() => void) | undefined;
     void listen<string>("aspera://call", (ev) => {
       setView("companion");
       void (async () => {
@@ -81,6 +82,40 @@ export default function App() {
     }).then((fn) => {
       unlistenCall = fn;
     });
+    void listen("tray://call-clipboard", () => {
+      void (async () => {
+        try {
+          const text = await navigator.clipboard.readText();
+          const parsed = await api.parseCallUri(text.trim());
+          if (!parsed.ok || !parsed.data) {
+            setError(parsed.error ?? {
+              code: "clipboard",
+              title: "No number",
+              message: "Copy a phone number first, then use Call from clipboard.",
+              hint: null,
+            });
+            return;
+          }
+          setView("companion");
+          const res = await api.placeCall({
+            number: parsed.data,
+            serial: null,
+            direct: true,
+          });
+          if (!res.ok) setError(res.error ?? null);
+          else setStatusMsg(res.data ?? `Calling ${parsed.data}`);
+        } catch {
+          setError({
+            code: "clipboard",
+            title: "Clipboard read failed",
+            message: "Allow clipboard access or paste the number in Hub instead.",
+            hint: null,
+          });
+        }
+      })();
+    }).then((fn) => {
+      unlistenClip = fn;
+    });
     void api.takePendingCall().then((n) => {
       if (!n) return;
       setView("companion");
@@ -89,7 +124,10 @@ export default function App() {
         else setStatusMsg(res.data ?? `Calling ${n}`);
       });
     });
-    return () => unlistenCall?.();
+    return () => {
+      unlistenCall?.();
+      unlistenClip?.();
+    };
   }, []);
 
   async function persistConfig(next: AppConfig) {
