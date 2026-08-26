@@ -184,6 +184,14 @@
                 android:layout_marginTop="@dimen/space_sm"
                 android:text="@string/allow_calls" />
 
+            <Button
+                android:id="@+id/mirrorButton"
+                style="@style/Widget.Aspera.Button.Secondary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_sm"
+                android:text="@string/start_mirror" />
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -191,30 +199,13 @@
                 style="@style/Text.Aspera.Label"
                 android:text="@string/optional" />
 
-            <LinearLayout
+            <Button
+                android:id="@+id/accessibilityButton"
+                style="@style/Widget.Aspera.Button.Ghost"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/space_sm"
-                android:orientation="horizontal">
-
-                <Button
-                    android:id="@+id/mirrorButton"
-                    style="@style/Widget.Aspera.Button.Ghost"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="6dp"
-                    android:layout_weight="1"
-                    android:text="@string/start_mirror" />
-
-                <Button
-                    android:id="@+id/accessibilityButton"
-                    style="@style/Widget.Aspera.Button.Ghost"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:layout_weight="1"
-                    android:text="@string/enable_taps" />
-            </LinearLayout>
+                android:text="@string/enable_taps" />
 
             <Button
                 android:id="@+id/stopButton"

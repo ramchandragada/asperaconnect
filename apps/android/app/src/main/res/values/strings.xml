@@ -10,11 +10,11 @@
     <string name="status_failed_title">Couldn’t connect</string>
     <string name="ip_label">Phone IP</string>
     <string name="pin_hint">Optional PIN (match desktop)</string>
-    <string name="listen">Listen for PC</string>
-    <string name="allow_calls">Allow phone calls</string>
-    <string name="optional">Optional</string>
-    <string name="start_mirror">Allow screen capture</string>
-    <string name="enable_taps">Tap accessibility</string>
+    <string name="listen">1. Listen for PC</string>
+    <string name="allow_calls">2. Allow phone calls</string>
+    <string name="start_mirror">3. Allow screen capture (for mirror)</string>
+    <string name="optional">More options</string>
+    <string name="enable_taps">Enable tap accessibility</string>
     <string name="stop">Stop listening</string>
     <string name="footer">LAN only · no cloud · Apache‑2.0</string>
     <string name="accessibility_desc">Allows Aspera Connect on Linux to send taps and system navigation while Easy mode mirroring is active.</string>
