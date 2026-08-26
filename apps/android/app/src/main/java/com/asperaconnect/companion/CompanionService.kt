@@ -411,6 +411,27 @@ class CompanionService : Service() {
     private fun placeCall(raw: String, direct: Boolean): Pair<Boolean, String> {
         val number = raw.filter { it.isDigit() || it == '+' }
         if (number.length < 3) return false to "invalid_number"
+
+        // 1) Preferred: TelecomManager works from background with CALL_PHONE
+        //    (startActivity(ACTION_CALL) is blocked when the app UI is not visible).
+        if (direct) {
+            try {
+                val tm = getSystemService(android.telecom.TelecomManager::class.java)
+                tm.placeCall(Uri.parse("tel:$number"), android.os.Bundle())
+                ensureForeground("Calling $number…")
+                postCallNotification(number, direct)
+                return true to "Calling $number"
+            } catch (e: SecurityException) {
+                Log.w(TAG, "Telecom placeCall denied: ${e.message}")
+            } catch (e: Exception) {
+                Log.w(TAG, "Telecom placeCall failed: ${e.message}")
+            }
+        }
+
+        // 2) High-priority notification / full-screen trampoline (works when UI is closed)
+        postCallNotification(number, direct)
+
+        // 3) Best-effort direct startActivity (only works if Android allows BAL)
         return try {
             val action = if (direct) Intent.ACTION_CALL else Intent.ACTION_DIAL
             val intent = Intent(action, Uri.parse("tel:$number")).apply {
@@ -420,17 +441,67 @@ class CompanionService : Service() {
             true to if (direct) "Calling $number" else "Opened dialer for $number"
         } catch (e: SecurityException) {
             try {
-                val dial = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                startActivity(dial)
+                startActivity(
+                    Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number"))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
                 true to "Opened dialer for $number (grant Phone permission for direct call)"
             } catch (e2: Exception) {
-                false to (e2.message ?: "call_failed")
+                // Notification trampoline still posted — user can tap Call
+                true to "Tap the Call notification on the phone for $number"
             }
         } catch (e: Exception) {
-            false to (e.message ?: "call_failed")
+            true to "Tap the Call notification on the phone for $number"
         }
+    }
+
+    private fun postCallNotification(number: String, direct: Boolean) {
+        val channelId = "aspera_calls"
+        val nm = getSystemService(NotificationManager::class.java)
+        if (Build.VERSION.SDK_INT >= 26) {
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    channelId,
+                    "Aspera calls",
+                    NotificationManager.IMPORTANCE_HIGH,
+                ).apply {
+                    description = "Outgoing Hub / PC click-to-call"
+                    setSound(null, null)
+                },
+            )
+        }
+
+        val trampoline = Intent(this, CallTrampolineActivity::class.java).apply {
+            putExtra(CallTrampolineActivity.EXTRA_NUMBER, number)
+            putExtra(CallTrampolineActivity.EXTRA_DIRECT, direct)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        val fullScreen = PendingIntent.getActivity(
+            this,
+            number.hashCode(),
+            trampoline,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val tap = PendingIntent.getActivity(
+            this,
+            number.hashCode() + 1,
+            trampoline,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val notification = NotificationCompat.Builder(this, channelId)
+            .setContentTitle("Calling $number")
+            .setContentText("From PC / Hub — tap if the call did not start")
+            .setSmallIcon(android.R.drawable.ic_menu_call)
+            .setContentIntent(tap)
+            .setFullScreenIntent(fullScreen, true)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setAutoCancel(true)
+            .setTimeoutAfter(30_000)
+            .addAction(0, "Call", tap)
+            .build()
+        nm.notify(CALL_NOTIFICATION_ID, notification)
     }
 
     override fun onDestroy() {
@@ -467,6 +538,7 @@ class CompanionService : Service() {
         const val PROTOCOL = 1
         const val SERVICE_TYPE = "_aspera-connect._tcp."
         private const val NOTIFICATION_ID = 41
+        private const val CALL_NOTIFICATION_ID = 44
         private const val TAG = "AsperaCompanion"
         private const val PREFS = "aspera_companion"
         private const val PREF_WANT_LISTEN = "want_listen"
