@@ -11,8 +11,8 @@ android {
         applicationId = "com.asperaconnect.companion"
         minSdk = 26
         targetSdk = 35
-        versionCode = 15
-        versionName = "0.3.6"
+        versionCode = 16
+        versionName = "0.3.7"
     }
 
     signingConfigs {
@@ -22,12 +22,16 @@ android {
             storePassword = "aspera-connect"
             keyAlias = "aspera"
             keyPassword = "aspera-connect"
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
         }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            isDebuggable = false
             signingConfig = signingConfigs.getByName("sideload")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
