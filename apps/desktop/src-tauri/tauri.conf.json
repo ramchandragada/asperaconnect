@@ -40,7 +40,7 @@
     "linux": {
       "deb": {
         "depends": ["adb"],
-        "recommends": ["scrcpy"],
+        "recommends": ["scrcpy", "xclip", "wl-clipboard"],
         "section": "utils",
         "priority": "optional",
         "desktopTemplate": "../../../packaging/linux/aspera-connect.desktop",

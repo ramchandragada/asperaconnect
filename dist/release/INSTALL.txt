@@ -1,0 +1,18 @@
+Aspera Connect — install (2 files)
+================================
+
+PC (Linux Mint / Ubuntu)
+  1. Download: AsperaConnect-Desktop.deb
+  2. Double-click it → Install (or: sudo apt install ./AsperaConnect-Desktop.deb)
+  3. Open "Aspera Connect" from the app menu
+
+Phone (Android)
+  1. Download: AsperaConnect-Phone.apk  (open link on the phone)
+  2. Allow install → Install
+  3. Open app → Start for calls → note the IP address
+
+Connect
+  1. On PC: Phone calls → enter phone IP → Connect for phone calls
+  2. Same office Wi-Fi (same band if router has 2.4 GHz and 5 GHz)
+
+That's it.
