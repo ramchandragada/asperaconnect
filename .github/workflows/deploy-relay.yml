@@ -1,0 +1,25 @@
+# Deploy Aspera relay to Render when RENDER_API_KEY is set as a repo secret.
+# Manual one-click (no secret needed):
+# https://render.com/deploy?repo=https://github.com/ramchandragada/asperaconnect&branch=cursor/phone-contacts-sync-5b4f
+
+name: Deploy relay
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "apps/relay/**"
+      - "render.yaml"
+    branches:
+      - cursor/phone-contacts-sync-5b4f
+      - main
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Relay deploy reminder
+        run: |
+          echo "One-click deploy:"
+          echo "https://render.com/deploy?repo=https://github.com/ramchandragada/asperaconnect&branch=${GITHUB_REF_NAME}"
+          echo "Root: apps/relay · Start: npm start · Health: /health"
