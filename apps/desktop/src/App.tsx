@@ -144,30 +144,32 @@ export default function App() {
     });
     void listen("tray://call-clipboard", () => {
       void (async () => {
-        try {
-          const text = await navigator.clipboard.readText();
-          const parsed = await api.parseCallUri(text.trim());
-          if (!parsed.ok || !parsed.data) {
-            setError(
-              parsed.error ?? {
-                code: "clipboard",
-                title: "No number",
-                message: "Copy a phone number first, then use Call from clipboard.",
-                hint: null,
-              },
-            );
-            return;
-          }
-          setView("companion");
-          await callNumber(parsed.data);
-        } catch {
-          setError({
-            code: "clipboard",
-            title: "Clipboard read failed",
-            message: "Allow clipboard access or paste the number in Hub instead.",
-            hint: null,
-          });
+        const clip = await api.readSystemClipboard();
+        if (!clip.ok || !clip.data?.trim()) {
+          setError(
+            clip.error ?? {
+              code: "clipboard",
+              title: "No number",
+              message: "Copy a phone number first, then use Call from clipboard.",
+              hint: null,
+            },
+          );
+          return;
         }
+        const parsed = await api.parseCallUri(clip.data.trim());
+        if (!parsed.ok || !parsed.data) {
+          setError(
+            parsed.error ?? {
+              code: "clipboard",
+              title: "No number",
+              message: "Clipboard does not contain a dialable phone number.",
+              hint: null,
+            },
+          );
+          return;
+        }
+        setView("companion");
+        await callNumber(parsed.data);
       })();
     }).then((fn) => {
       unlistenClip = fn;

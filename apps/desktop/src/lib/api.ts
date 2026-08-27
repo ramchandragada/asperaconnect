@@ -83,6 +83,7 @@ export const api = {
     ),
   copyPhotoToClipboard: (serial: string, remote: string) =>
     invoke<CommandResult<string>>("copy_photo_to_clipboard", { serial, remote }),
+  readSystemClipboard: () => invoke<CommandResult<string>>("read_system_clipboard"),
   getDeviceClipboard: (serial: string) =>
     invoke<CommandResult<string>>("get_device_clipboard", { serial }),
   setDeviceClipboard: (serial: string, text: string) =>

@@ -531,6 +531,67 @@ async fn copy_image_file_to_clipboard(
     ))
 }
 
+/// Read plain text from the desktop clipboard (wl-paste / xclip / xsel).
+async fn read_system_clipboard_text() -> Result<String, AsperaError> {
+    use tokio::process::Command;
+
+    if which::which("wl-paste").is_ok() {
+        let out = Command::new("wl-paste")
+            .arg("-n")
+            .output()
+            .await
+            .map_err(|e| AsperaError::Message(e.to_string()))?;
+        if out.status.success() {
+            let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if !text.is_empty() {
+                return Ok(text);
+            }
+        }
+    }
+
+    if which::which("xclip").is_ok() {
+        let out = Command::new("xclip")
+            .args(["-selection", "clipboard", "-o"])
+            .output()
+            .await
+            .map_err(|e| AsperaError::Message(e.to_string()))?;
+        if out.status.success() {
+            let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if !text.is_empty() {
+                return Ok(text);
+            }
+        }
+    }
+
+    if which::which("xsel").is_ok() {
+        let out = Command::new("xsel")
+            .args(["--clipboard", "--output"])
+            .output()
+            .await
+            .map_err(|e| AsperaError::Message(e.to_string()))?;
+        if out.status.success() {
+            let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if !text.is_empty() {
+                return Ok(text);
+            }
+        }
+    }
+
+    Err(AsperaError::Message(
+        "Could not read clipboard. Copy a phone number first, then try again. \
+         If needed: sudo apt install wl-clipboard (Wayland) or xclip (X11)."
+            .into(),
+    ))
+}
+
+#[tauri::command]
+async fn read_system_clipboard() -> CommandResult<String> {
+    match read_system_clipboard_text().await {
+        Ok(s) => CommandResult::ok(s),
+        Err(e) => CommandResult::err(e),
+    }
+}
+
 #[tauri::command]
 async fn get_device_clipboard(serial: String) -> CommandResult<String> {
     match AdbClient::new() {
@@ -1430,6 +1491,7 @@ pub fn run() {
             list_photos,
             read_photo,
             copy_photo_to_clipboard,
+            read_system_clipboard,
             get_device_clipboard,
             set_device_clipboard,
             share_text_to_phone,
