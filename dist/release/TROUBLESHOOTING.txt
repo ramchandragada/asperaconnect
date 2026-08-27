@@ -12,8 +12,20 @@ Fix:     Log out and log back in, or run: aspera-connect
 
 PHONE INSTALL
 -------------
-Problem: "Install blocked" / can't install APK
-Fix:     Settings → Security → allow install from Chrome (or Files app)
+Problem: Google Play Protect — "App blocked to protect your device"
+Fix:     This is normal for apps not from Play Store (office beta).
+         1. Tap OK on the Play Protect popup
+         2. Open Play Store → profile icon (top right) → Play Protect
+         3. Tap the gear (Settings) → turn OFF "Scan apps with Play Protect"
+         4. Download/open AsperaConnect-Phone.apk again → Install
+         5. (Optional) turn Scan apps back ON after install
+
+         On some phones: Play Protect popup → "More details" → Install anyway
+
+         IT shortcut (USB): adb install -t AsperaConnect-Phone.apk  (bypasses Play Protect)
+
+Problem: "Install blocked" / can't install APK (unknown sources)
+Fix:     Settings → Security → Install unknown apps → allow Chrome or Files
          Download again → open APK → Install
 
 Problem: App installs but calls don't work
