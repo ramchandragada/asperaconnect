@@ -1,21 +1,28 @@
-Aspera Connect — light themes + Favorites/Recents
-=================================================
+Aspera Connect — share with testers (Aug 2026)
+==============================================
 
-Phone APK 0.3.4 (light theme + hang up):
-  AsperaConnect-0.3.4.apk
+Branch: cursor/phone-contacts-sync-5b4f
 
-Desktop (Favorites / Recents / logo):
-  aspera-connect-linux-x64
+FULL GUIDE (Linux Mint Xfce):
+  dist/release/BETA-TEST-LINUX-MINT.md
+  https://github.com/ramchandragada/asperaconnect/blob/cursor/phone-contacts-sync-5b4f/dist/release/BETA-TEST-LINUX-MINT.md
 
-Favorites & Recents are DESKTOP-only. Update the PC binary to see them.
-Update the phone APK for the light companion UI.
-
-Desktop:
+DESKTOP (Linux x64 — Mint, Ubuntu, Zorin, etc.)
   curl -L -o ~/.local/bin/aspera-connect \
     "https://raw.githubusercontent.com/ramchandragada/asperaconnect/cursor/phone-contacts-sync-5b4f/dist/release/aspera-connect-linux-x64"
   chmod +x ~/.local/bin/aspera-connect
 
-Phone:
-  curl -L -o /tmp/AsperaConnect-0.3.4.apk \
-    "https://raw.githubusercontent.com/ramchandragada/asperaconnect/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-0.3.4.apk"
-  adb install -r /tmp/AsperaConnect-0.3.4.apk
+  Mint Xfce clipboard: sudo apt install xclip
+  KDE/Wayland clipboard: sudo apt install wl-clipboard
+
+PHONE APK 0.3.6 (signed)
+  https://github.com/ramchandragada/asperaconnect/raw/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-0.3.6.apk
+  sha256: 2215e20113d55f540984a309381f3fa8ee27ad9e22e1b84f8f1184f2fc71147b
+
+  adb: curl -L --http1.1 -o /tmp/AsperaConnect-0.3.6.apk "<url above>"
+       adb install -t /tmp/AsperaConnect-0.3.6.apk
+
+WHAT TESTERS NEED
+  - Same office LAN; same Wi-Fi band if router splits 2.4/5 GHz
+  - No Android Studio, no USB debugging for Easy mode
+  - Favorites / Recents are desktop-only
