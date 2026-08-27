@@ -1599,6 +1599,8 @@ pub fn run() {
     #[cfg(any(target_os = "macos", windows, target_os = "linux"))]
     {
         builder = builder.plugin(tauri_plugin_single_instance::init(move |app, argv, _cwd| {
+            // Menu/icon launch while already running (tray) must raise the window.
+            show_main_window(app);
             handle_cli_call_args(app, state_for_si.as_ref(), &argv);
         }));
     }
