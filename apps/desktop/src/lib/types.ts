@@ -164,6 +164,25 @@ export interface CompanionSessionState {
   lastError?: string | null;
 }
 
+export interface QrPairSession {
+  offer: {
+    v: number;
+    t: string;
+    p: number;
+    h: string[];
+    n: string;
+  };
+  qrPayload: string;
+  expiresAtMs: number;
+  active: boolean;
+}
+
+export interface QrPairedPhone {
+  phoneIp: string;
+  phonePort: number;
+  name: string;
+}
+
 export type AppView = "companion" | "contacts" | "settings" | "help";
 
 export interface PhoneContact {

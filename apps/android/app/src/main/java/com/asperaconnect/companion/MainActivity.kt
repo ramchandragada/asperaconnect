@@ -15,9 +15,14 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import com.google.zxing.client.android.Intents
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
+import kotlin.concurrent.thread
 
 /** Call-only companion: listen for PC click-to-call. */
 class MainActivity : ComponentActivity() {
@@ -50,6 +55,17 @@ class MainActivity : ComponentActivity() {
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
+    private val cameraPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) openQrScanner()
+            else Toast.makeText(this, "Camera needed to scan PC QR", Toast.LENGTH_LONG).show()
+        }
+
+    private val qrLauncher = registerForActivityResult(ScanContract()) { result ->
+        val raw = result.contents ?: return@registerForActivityResult
+        handleQrPayload(raw)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -66,7 +82,7 @@ class MainActivity : ComponentActivity() {
             val p = packageManager.getPackageInfo(packageName, 0)
             "v${p.versionName}"
         } catch (_: Exception) {
-            "v0.3.7"
+            "v0.3.8"
         }
 
         refreshIp()
@@ -77,10 +93,67 @@ class MainActivity : ComponentActivity() {
             startListening()
         }
 
+        findViewById<Button>(R.id.scanQrButton).setOnClickListener {
+            ensureCameraThenScan()
+        }
+
         findViewById<Button>(R.id.stopButton).setOnClickListener {
             CompanionService.stop(this)
             applyLinkStatus(CompanionService.STATUS_STOPPED, null, CompanionService.guessLocalIpv4(this))
             statusText.text = getString(R.string.footer)
+        }
+    }
+
+    private fun ensureCameraThenScan() {
+        val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+        if (granted) openQrScanner()
+        else cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+    }
+
+    private fun openQrScanner() {
+        val options = ScanOptions().apply {
+            setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+            setPrompt("Scan the QR on Aspera Connect (PC)")
+            setBeepEnabled(false)
+            setOrientationLocked(true)
+            addExtra(Intents.Scan.SCAN_TYPE, Intents.Scan.MIXED_SCAN)
+        }
+        qrLauncher.launch(options)
+    }
+
+    private fun handleQrPayload(raw: String) {
+        val offer = QrPairing.parsePayload(raw)
+        if (offer == null) {
+            Toast.makeText(this, "Not an Aspera PC QR", Toast.LENGTH_LONG).show()
+            return
+        }
+        // Ensure companion is listening so PC can connect after pair.
+        startListening()
+        statusText.text = "Pairing with ${offer.pcName}…"
+        thread {
+            val phoneIp = CompanionService.guessLocalIpv4(this@MainActivity)
+            if (phoneIp.isNullOrBlank()) {
+                runOnUiThread {
+                    statusText.text = "No Wi‑Fi IP — connect phone to the same network as the PC"
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Join the PC’s Wi‑Fi / office LAN first",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+                return@thread
+            }
+            val result = QrPairing.pairWithPc(offer, phoneIp)
+            runOnUiThread {
+                if (result.ok) {
+                    statusText.text = "Paired — waiting for PC to connect"
+                    Toast.makeText(this@MainActivity, result.message, Toast.LENGTH_LONG).show()
+                } else {
+                    statusText.text = result.message
+                    Toast.makeText(this@MainActivity, result.message, Toast.LENGTH_LONG).show()
+                }
+            }
         }
     }
 

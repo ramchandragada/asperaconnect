@@ -13,8 +13,9 @@ Phone (Android)
   4. Open app → Start for calls → note the IP address
 
 Connect
-  1. On PC: Phone calls → enter phone IP → Connect for phone calls
-  2. Same office Wi-Fi (same band if router has 2.4 GHz and 5 GHz)
+  1. Same office network: phone Wi‑Fi must be the SAME router as the PC (LAN OK)
+  2. Easiest: PC → Show QR to pair → Phone → Scan PC QR
+  3. Or: enter phone IP on PC → Connect for phone calls
 
 Something wrong?  See TROUBLESHOOTING.txt (same folder as these files).
 

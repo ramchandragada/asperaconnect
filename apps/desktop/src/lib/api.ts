@@ -15,6 +15,7 @@ import type {
   PairResult,
   PhoneApp,
   PhoneNotification,
+  QrPairSession,
   SetupReport,
   ToolsReport,
 } from "./types";
@@ -137,6 +138,8 @@ export const api = {
       name,
       pin: pin || null,
     }),
+  startQrPairing: () => invoke<CommandResult<QrPairSession>>("start_qr_pairing"),
+  stopQrPairing: () => invoke<void>("stop_qr_pairing"),
   syncPhoneContacts: (host?: string | null) =>
     invoke<CommandResult<ContactsCache>>("sync_phone_contacts", { host: host ?? null }),
   loadCachedContacts: () => invoke<ContactsCache>("load_cached_contacts"),

@@ -8,6 +8,7 @@ use aspera_core::kdeconnect;
 use aspera_core::mirror::{MirrorHandle, MirrorManager, MirrorOptions};
 use aspera_core::notifications::{NotificationStore, PhoneNotification};
 use aspera_core::pairing::{self, ConnectRequest, PairRequest, PairResult, WirelessQrPayload};
+use aspera_core::qr_pair::{self, QrPairHub, QrPairSession};
 use aspera_core::setup::run_setup_doctor;
 use aspera_core::tools::{detect_tools, ToolsReport};
 use serde::Serialize;
@@ -28,6 +29,8 @@ pub struct AppState {
     pub notification_fanout: Mutex<Option<tokio::task::JoinHandle<()>>>,
     pub pending_call: Mutex<Option<String>>,
     pub easy_mirror: std::sync::Mutex<Option<std::process::Child>>,
+    pub qr_pair: Arc<QrPairHub>,
+    pub qr_pair_server: Mutex<Option<tokio::task::JoinHandle<()>>>,
 }
 
 /// Keep tray menu items alive on Linux — dropping them makes GTK labels blank.
@@ -48,6 +51,8 @@ impl Default for AppState {
             notification_fanout: Mutex::new(None),
             pending_call: Mutex::new(None),
             easy_mirror: std::sync::Mutex::new(None),
+            qr_pair: Arc::new(QrPairHub::default()),
+            qr_pair_server: Mutex::new(None),
         }
     }
 }
@@ -1271,6 +1276,65 @@ async fn push_files(serial: String, paths: Vec<String>) -> CommandResult<Vec<Str
 }
 
 #[tauri::command]
+async fn start_qr_pairing(
+    app: AppHandle,
+    state: State<'_, Arc<AppState>>,
+) -> Result<CommandResult<QrPairSession>, ()> {
+    let hub = state.qr_pair.clone();
+    hub.stop().await;
+    if let Some(h) = state.qr_pair_server.lock().await.take() {
+        h.abort();
+    }
+    let pc_name = hostname_fallback();
+    let session = match hub.start(&pc_name).await {
+        Ok(s) => s,
+        Err(e) => return Ok(CommandResult::err(e)),
+    };
+
+    let hub_server = hub.clone();
+    let server = tokio::spawn(async move {
+        let _ = qr_pair::run_qr_pair_server(hub_server).await;
+    });
+    *state.qr_pair_server.lock().await = Some(server);
+
+    let hub_wait = hub.clone();
+    tokio::spawn(async move {
+        if let Some(phone) = hub_wait
+            .wait_result(std::time::Duration::from_secs(qr_pair::QR_PAIR_TTL_SECS))
+            .await
+        {
+            let _ = app.emit("aspera://qr-paired", phone);
+        }
+    });
+
+    Ok(CommandResult::ok(session))
+}
+
+#[tauri::command]
+async fn stop_qr_pairing(state: State<'_, Arc<AppState>>) -> Result<(), ()> {
+    state.qr_pair.stop().await;
+    if let Some(h) = state.qr_pair_server.lock().await.take() {
+        h.abort();
+    }
+    Ok(())
+}
+
+fn hostname_fallback() -> String {
+    std::process::Command::new("hostname")
+        .output()
+        .ok()
+        .and_then(|o| {
+            let s = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            if s.is_empty() {
+                None
+            } else {
+                Some(s)
+            }
+        })
+        .unwrap_or_else(|| "Aspera PC".into())
+}
+
+#[tauri::command]
 async fn companion_hello(
     app: AppHandle,
     state: State<'_, Arc<AppState>>,
@@ -1507,6 +1571,8 @@ pub fn run() {
             get_companion_state,
             set_companion_pin,
             companion_hello,
+            start_qr_pairing,
+            stop_qr_pairing,
             get_setup_report,
             discover_companion_devices,
             list_notifications,

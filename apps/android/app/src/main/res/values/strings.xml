@@ -7,10 +7,12 @@
     <string name="status_listening_title">Ready for your PC</string>
     <string name="status_linked_title">Connected to PC</string>
     <string name="status_failed_title">Couldn’t connect</string>
-    <string name="ip_label">Your phone IP (enter this on the PC)</string>
+    <string name="ip_label">Your phone IP (or Scan PC QR)</string>
     <string name="listen_title">Start for calls</string>
     <string name="listen_sub">Hub / Zoho click‑to‑call from your PC</string>
+    <string name="scan_qr">Scan PC QR</string>
+    <string name="scan_qr_sub">On PC: Show QR to pair — then scan here</string>
     <string name="stop">Stop</string>
-    <string name="footer">No Developer Options · stays on your network</string>
+    <string name="footer">No Developer Options · same network as PC</string>
     <string name="version_label">v%1$s</string>
 </resources>

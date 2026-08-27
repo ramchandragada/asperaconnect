@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { BookUser, HelpCircle, Settings, Smartphone, Star } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { api } from "./lib/api";
 import { locales, t } from "./lib/i18n";
 import type {
@@ -11,6 +12,7 @@ import type {
   CompanionSessionState,
   ContactsCache,
   FavoritesStore,
+  QrPairSession,
   UserFacingError,
 } from "./lib/types";
 import { ErrorBanner } from "./components/ErrorBanner";
@@ -29,6 +31,7 @@ export default function App() {
   const [companionName, setCompanionName] = useState("My Phone");
   const [companionPin, setCompanionPin] = useState("");
   const [discoveredCompanions, setDiscoveredCompanions] = useState<CompanionDevice[]>([]);
+  const [qrSession, setQrSession] = useState<QrPairSession | null>(null);
   const [contactsCache, setContactsCache] = useState<ContactsCache>({ contacts: [] });
   const [callHistory, setCallHistory] = useState<CallHistory>({ entries: [] });
   const [favorites, setFavorites] = useState<FavoritesStore>({ favorites: [] });
@@ -91,6 +94,54 @@ export default function App() {
       unlisten = fn;
     });
     return () => unlisten?.();
+  }, []);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void listen<{ phoneIp: string; phonePort: number; name: string }>("aspera://qr-paired", (ev) => {
+      void (async () => {
+        const phone = ev.payload;
+        setCompanionHost(phone.phoneIp);
+        if (phone.name) setCompanionName(phone.name);
+        setQrSession(null);
+        await api.stopQrPairing();
+        setBusy(true);
+        setError(null);
+        setStatusMsg(`Phone scanned QR — connecting to ${phone.phoneIp}…`);
+        const cfg = await api.getConfig();
+        await api.saveConfig({ ...cfg, companionHost: phone.phoneIp, companionName: phone.name || cfg.companionName });
+        setConfig(await api.getConfig());
+        const res = await api.companionHello(
+          phone.phoneIp,
+          phone.name || "My Phone",
+          cfg.companionPin || undefined,
+        );
+        setBusy(false);
+        if (!res.ok) {
+          setCompanion({
+            connected: false,
+            device: null,
+            mirroring: false,
+            lastError: res.error?.message ?? "Connection failed after QR pair",
+          });
+          return setError(res.error ?? null);
+        }
+        setCompanion(res.data ?? null);
+        setStatusMsg("Connected — syncing contacts…");
+        const sync = await api.syncPhoneContacts(phone.phoneIp);
+        if (sync.ok) {
+          setContactsCache(sync.data ?? { contacts: [] });
+          const n = sync.data?.contacts?.length ?? 0;
+          setStatusMsg(`Synced ${n} contact${n === 1 ? "" : "s"} from phone`);
+        }
+      })();
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => {
+      unlisten?.();
+      void api.stopQrPairing();
+    };
   }, []);
 
   useEffect(() => {
@@ -468,13 +519,56 @@ export default function App() {
             />
 
             <p style={{ color: "var(--muted)", margin: 0, lineHeight: 1.45 }}>
-              On the phone open Aspera Connect → <strong>Start for calls</strong>. Enter the phone IP
-              below, then connect. PC and phone must be on the same reachable network (same Wi‑Fi band
-              if your router splits 2.4 GHz and 5 GHz).
+              Easiest: tap <strong>Show QR to pair</strong>, then on the phone tap{" "}
+              <strong>Scan PC QR</strong>. Phone and PC must be on the same office network
+              (LAN + same Wi‑Fi router is OK).
             </p>
 
+            {qrSession ? (
+              <div
+                className="easy-status easy-status-ok"
+                style={{ display: "grid", gap: 12, justifyItems: "center", textAlign: "center" }}
+              >
+                <div className="easy-status-title">Scan with phone</div>
+                <QRCodeSVG value={qrSession.qrPayload} size={220} level="M" includeMargin />
+                <div className="easy-status-detail">
+                  On the phone: <strong>Scan PC QR</strong>. Waiting for scan…
+                  <br />
+                  PC IPs: {qrSession.offer.h.join(", ")}
+                </div>
+                <button
+                  className="btn"
+                  onClick={async () => {
+                    await api.stopQrPairing();
+                    setQrSession(null);
+                  }}
+                >
+                  Cancel QR
+                </button>
+              </div>
+            ) : (
+              <button
+                className="btn btn-primary"
+                style={{ minHeight: 52, fontSize: "1.05rem" }}
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  setError(null);
+                  const res = await api.startQrPairing();
+                  setBusy(false);
+                  if (!res.ok) return setError(res.error ?? null);
+                  setQrSession(res.data ?? null);
+                  setStatusMsg("Show this QR to the phone app → Scan PC QR");
+                }}
+              >
+                Show QR to pair
+              </button>
+            )}
+
             <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ color: "var(--muted)", fontSize: "0.85rem", fontWeight: 600 }}>Phone IP</span>
+              <span style={{ color: "var(--muted)", fontSize: "0.85rem", fontWeight: 600 }}>
+                Or enter Phone IP manually
+              </span>
               <input
                 className="field"
                 value={companionHost}
