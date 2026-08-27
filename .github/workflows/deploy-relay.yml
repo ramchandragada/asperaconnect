@@ -10,6 +10,7 @@ on:
     paths:
       - "apps/relay/**"
       - "render.yaml"
+      - "scripts/deploy-relay-render.sh"
     branches:
       - cursor/phone-contacts-sync-5b4f
       - main
@@ -23,3 +24,14 @@ jobs:
           echo "One-click deploy:"
           echo "https://render.com/deploy?repo=https://github.com/ramchandragada/asperaconnect&branch=${GITHUB_REF_NAME}"
           echo "Root: apps/relay · Start: npm start · Health: /health"
+
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ secrets.RENDER_API_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy via Render API
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RELAY_BRANCH: ${{ github.ref_name }}
+        run: bash scripts/deploy-relay-render.sh
