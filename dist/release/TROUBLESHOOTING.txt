@@ -41,21 +41,22 @@ Fix:     Settings → Battery → Aspera Connect → Unrestricted / Don't optimi
 
 CONNECT (PC ↔ PHONE)
 --------------------
-Problem: Phone Wi‑Fi is a different network from PC LAN
-Fix:     Phone MUST join the Wi‑Fi of the SAME router as the PC.
-         QR pairing cannot bridge two unrelated networks.
-         Guest Wi‑Fi / mobile hotspot / other office SSID will fail.
+Problem: Different Wi‑Fi / PC on LAN, phone elsewhere
+Fix:     Use internet QR (WhatsApp-style):
+           PC → Show QR to pair
+           Phone → Scan PC QR
+         Requires the company cloud relay (apps/relay — deploy once free on Render).
+         Set relayUrl in ~/.config/aspera-connect/config.json to your wss:// URL.
 
 Problem: How to pair without typing IP
 Fix:     PC: Phone calls → Show QR to pair
-         Phone: Scan PC QR (starts listening + registers IP)
-         PC connects automatically when scan succeeds
+         Phone: Scan PC QR
 
-Problem: "Not connected" / "unreachable" / "no route"
+Problem: "Not connected" / "unreachable" / "no route" (LAN mode)
 Fix:     1. Phone: Start for calls (notification visible)
          2. PC and phone on SAME network (PC LAN + phone on that router's Wi‑Fi)
          3. Same Wi‑Fi band if router splits 2.4 / 5 GHz
-         4. Show QR to pair, or copy IP from phone → Connect
+         4. Show QR (internet) or copy IP from phone → Connect
          5. Or click "Find phone on network"
 
 Problem: Worked on 5 GHz, fails on 2.4 GHz (or opposite)

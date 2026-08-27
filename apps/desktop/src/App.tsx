@@ -97,6 +97,41 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    let unlistenPaired: (() => void) | undefined;
+    let unlistenFail: (() => void) | undefined;
+    void listen<CompanionSessionState>("aspera://cloud-paired", (ev) => {
+      setQrSession(null);
+      setCompanion(ev.payload);
+      setStatusMsg("Phone linked over internet — syncing contacts…");
+      void (async () => {
+        const sync = await api.syncPhoneContacts(null);
+        if (sync.ok) {
+          setContactsCache(sync.data ?? { contacts: [] });
+          const n = sync.data?.contacts?.length ?? 0;
+          setStatusMsg(`Synced ${n} contact${n === 1 ? "" : "s"} from phone`);
+        }
+      })();
+    }).then((fn) => {
+      unlistenPaired = fn;
+    });
+    void listen<string>("aspera://cloud-pair-failed", (ev) => {
+      setError({
+        code: "relay",
+        title: "QR pairing failed",
+        message: ev.payload || "Could not pair over internet",
+        hint: "Check internet on PC and phone. Deploy apps/relay if using your own server.",
+      });
+      setQrSession(null);
+    }).then((fn) => {
+      unlistenFail = fn;
+    });
+    return () => {
+      unlistenPaired?.();
+      unlistenFail?.();
+    };
+  }, []);
+
+  useEffect(() => {
     let unlisten: (() => void) | undefined;
     void listen<{ phoneIp: string; phonePort: number; name: string }>("aspera://qr-paired", (ev) => {
       void (async () => {
@@ -519,9 +554,8 @@ export default function App() {
             />
 
             <p style={{ color: "var(--muted)", margin: 0, lineHeight: 1.45 }}>
-              Easiest: tap <strong>Show QR to pair</strong>, then on the phone tap{" "}
-              <strong>Scan PC QR</strong>. Phone and PC must be on the same office network
-              (LAN + same Wi‑Fi router is OK).
+              Like WhatsApp: tap <strong>Show QR to pair</strong>, phone taps <strong>Scan PC QR</strong>.
+              Works across different networks (both need internet). Secure one-time code in the QR.
             </p>
 
             {qrSession ? (
@@ -529,12 +563,12 @@ export default function App() {
                 className="easy-status easy-status-ok"
                 style={{ display: "grid", gap: 12, justifyItems: "center", textAlign: "center" }}
               >
-                <div className="easy-status-title">Scan with phone</div>
+                <div className="easy-status-title">Scan with phone (internet)</div>
                 <QRCodeSVG value={qrSession.qrPayload} size={220} level="M" includeMargin />
                 <div className="easy-status-detail">
-                  On the phone: <strong>Scan PC QR</strong>. Waiting for scan…
+                  On the phone: <strong>Scan PC QR</strong>. Waiting…
                   <br />
-                  PC IPs: {qrSession.offer.h.join(", ")}
+                  Works even if phone Wi‑Fi ≠ PC LAN.
                 </div>
                 <button
                   className="btn"
@@ -558,7 +592,7 @@ export default function App() {
                   setBusy(false);
                   if (!res.ok) return setError(res.error ?? null);
                   setQrSession(res.data ?? null);
-                  setStatusMsg("Show this QR to the phone app → Scan PC QR");
+                  setStatusMsg("Show this QR to the phone — works across networks");
                 }}
               >
                 Show QR to pair

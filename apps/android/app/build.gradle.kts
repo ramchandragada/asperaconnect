@@ -11,8 +11,8 @@ android {
         applicationId = "com.asperaconnect.companion"
         minSdk = 26
         targetSdk = 35
-        versionCode = 17
-        versionName = "0.3.8"
+        versionCode = 18
+        versionName = "0.3.9"
     }
 
     signingConfigs {
@@ -55,5 +55,6 @@ dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }
 

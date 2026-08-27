@@ -22,6 +22,7 @@ import androidx.core.content.ContextCompat
 import com.google.zxing.client.android.Intents
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
+import org.json.JSONObject
 import kotlin.concurrent.thread
 
 /** Call-only companion: listen for PC click-to-call. */
@@ -82,7 +83,7 @@ class MainActivity : ComponentActivity() {
             val p = packageManager.getPackageInfo(packageName, 0)
             "v${p.versionName}"
         } catch (_: Exception) {
-            "v0.3.8"
+            "v0.3.9"
         }
 
         refreshIp()
@@ -123,37 +124,59 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleQrPayload(raw: String) {
-        val offer = QrPairing.parsePayload(raw)
-        if (offer == null) {
-            Toast.makeText(this, "Not an Aspera PC QR", Toast.LENGTH_LONG).show()
-            return
-        }
-        // Ensure companion is listening so PC can connect after pair.
-        startListening()
-        statusText.text = "Pairing with ${offer.pcName}…"
-        thread {
-            val phoneIp = CompanionService.guessLocalIpv4(this@MainActivity)
-            if (phoneIp.isNullOrBlank()) {
-                runOnUiThread {
-                    statusText.text = "No Wi‑Fi IP — connect phone to the same network as the PC"
-                    Toast.makeText(
-                        this@MainActivity,
-                        "Join the PC’s Wi‑Fi / office LAN first",
-                        Toast.LENGTH_LONG,
-                    ).show()
-                }
-                return@thread
-            }
-            val result = QrPairing.pairWithPc(offer, phoneIp)
-            runOnUiThread {
-                if (result.ok) {
-                    statusText.text = "Paired — waiting for PC to connect"
-                    Toast.makeText(this@MainActivity, result.message, Toast.LENGTH_LONG).show()
-                } else {
-                    statusText.text = result.message
-                    Toast.makeText(this@MainActivity, result.message, Toast.LENGTH_LONG).show()
+        when (val parsed = QrPairing.parseAny(raw)) {
+            is QrPairing.Parsed.Cloud -> {
+                statusText.text = "Connecting over internet to ${parsed.offer.pcName}…"
+                startListening()
+                thread {
+                    RelaySession.joinFromQr(
+                        parsed.offer,
+                        onPaired = { ok, message ->
+                            runOnUiThread {
+                                statusText.text = message
+                                Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
+                                if (ok) {
+                                    applyLinkStatus(
+                                        CompanionService.STATUS_LINKED,
+                                        parsed.offer.pcName,
+                                        CompanionService.guessLocalIpv4(this@MainActivity),
+                                    )
+                                }
+                            }
+                        },
+                        onCommand = { msg, reply ->
+                            val svc = CompanionService.instance
+                            val ack = svc?.handleRelayCommand(msg)
+                                ?: JSONObject().put("type", "error").put("reason", "service_stopped")
+                            reply(ack)
+                        },
+                    )
                 }
             }
+            is QrPairing.Parsed.Lan -> {
+                startListening()
+                statusText.text = "Pairing with ${parsed.offer.pcName}…"
+                thread {
+                    val phoneIp = CompanionService.guessLocalIpv4(this@MainActivity)
+                    if (phoneIp.isNullOrBlank()) {
+                        runOnUiThread {
+                            statusText.text = "No Wi‑Fi IP — connect phone to the same network as the PC"
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Join the PC’s Wi‑Fi / office LAN first",
+                                Toast.LENGTH_LONG,
+                            ).show()
+                        }
+                        return@thread
+                    }
+                    val result = QrPairing.pairWithPc(parsed.offer, phoneIp)
+                    runOnUiThread {
+                        statusText.text = result.message
+                        Toast.makeText(this@MainActivity, result.message, Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+            null -> Toast.makeText(this, "Not an Aspera PC QR", Toast.LENGTH_LONG).show()
         }
     }
 

@@ -8,15 +8,18 @@ PC (Linux Mint / Ubuntu)
 
 Phone (Android)
   1. Download: AsperaConnect-Phone.apk  (open link on the phone)
-  2. If Google Play Protect says "App blocked" → see TROUBLESHOOTING.txt (Play Protect section)
-  3. Allow install → Install
-  4. Open app → Start for calls → note the IP address
+  2. If Google Play Protect says "App blocked" → see TROUBLESHOOTING.txt
+     (or IT: adb install -r AsperaConnect-Phone.apk)
+  3. Open app → allow permissions
 
-Connect
-  1. Same office network: phone Wi‑Fi must be the SAME router as the PC (LAN OK)
-  2. Easiest: PC → Show QR to pair → Phone → Scan PC QR
-  3. Or: enter phone IP on PC → Connect for phone calls
+Connect (WhatsApp-style — works across networks)
+  1. Company runs the free cloud relay once (see apps/relay/README.md)
+  2. PC: Phone calls → Show QR to pair
+  3. Phone: Scan PC QR
+  4. Done — works even if phone Wi-Fi ≠ PC LAN
 
-Something wrong?  See TROUBLESHOOTING.txt (same folder as these files).
+Same-network fallback (no relay): enter phone IP → Connect
+
+Something wrong?  See TROUBLESHOOTING.txt
 
 That's it.

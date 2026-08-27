@@ -80,6 +80,8 @@ export interface AppConfig {
   deviceNicknames?: Record<string, string>;
   notificationMutedApps?: string[];
   favoriteApps?: string[];
+  relayUrl?: string;
+  relayLinked?: boolean;
 }
 
 export interface UserFacingError {
@@ -167,14 +169,18 @@ export interface CompanionSessionState {
 export interface QrPairSession {
   offer: {
     v: number;
-    t: string;
-    p: number;
-    h: string[];
+    t?: string;
+    p?: number;
+    h?: string[];
     n: string;
+    r?: string;
+    s?: string;
+    k?: string;
   };
   qrPayload: string;
   expiresAtMs: number;
-  active: boolean;
+  active?: boolean;
+  relayUrl?: string;
 }
 
 export interface QrPairedPhone {

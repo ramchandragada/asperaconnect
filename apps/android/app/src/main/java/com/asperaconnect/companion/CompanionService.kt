@@ -62,7 +62,63 @@ class CompanionService : Service() {
     private var connectivityManager: ConnectivityManager? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
+    override fun onCreate() {
+        super.onCreate()
+        instance = this
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
+
+    /** Handle companion JSON from cloud relay. */
+    fun handleRelayCommand(msg: JSONObject): JSONObject {
+        return when (msg.optString("type")) {
+            "hello" -> {
+                val pc = msg.optString("name", "PC")
+                linkedClients.set(1)
+                ensureForeground("Linked to $pc — click-to-call ready (internet)")
+                broadcastStatus(STATUS_LINKED, pc)
+                JSONObject()
+                    .put("type", "helloAck")
+                    .put("ok", true)
+                    .put("protocol", PROTOCOL)
+                    .put(
+                        "capabilities",
+                        JSONObject()
+                            .put("placeCall", true)
+                            .put("endCall", true)
+                            .put("contacts", true)
+                            .put("mirror", false)
+                            .put("input", false),
+                    )
+            }
+            "placeCall" -> {
+                val number = msg.optString("number", "")
+                val direct = msg.optBoolean("direct", true)
+                val result = placeCall(number, direct)
+                JSONObject()
+                    .put("type", "placeCallAck")
+                    .put("ok", result.first)
+                    .put("message", result.second)
+            }
+            "endCall" -> {
+                val result = endCall()
+                JSONObject()
+                    .put("type", "endCallAck")
+                    .put("ok", result.first)
+                    .put("message", result.second)
+            }
+            "listContacts" -> {
+                val (ok, contacts) = ContactReader.listContacts(this)
+                JSONObject()
+                    .put("type", "contacts")
+                    .put("ok", ok)
+                    .put("contacts", contacts)
+                    .put("reason", if (ok) JSONObject.NULL else "need_contacts_permission")
+            }
+            "ping" -> JSONObject().put("type", "pong")
+            else -> JSONObject().put("type", "error").put("reason", "unknown")
+        }
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
@@ -598,11 +654,16 @@ class CompanionService : Service() {
         linkedPcName = null
         broadcastStatus(STATUS_STOPPED, null)
         foregroundReady = false
+        instance = null
         scope.cancel()
         super.onDestroy()
     }
 
     companion object {
+        @Volatile
+        var instance: CompanionService? = null
+            private set
+
         const val EXTRA_PIN = "pin"
         const val ACTION_STOP = "com.asperaconnect.companion.STOP"
         const val ACTION_STATUS = "com.asperaconnect.companion.STATUS"

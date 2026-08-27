@@ -11,8 +11,8 @@
     <string name="listen_title">Start for calls</string>
     <string name="listen_sub">Hub / Zoho click‑to‑call from your PC</string>
     <string name="scan_qr">Scan PC QR</string>
-    <string name="scan_qr_sub">On PC: Show QR to pair — then scan here</string>
+    <string name="scan_qr_sub">On PC tap Show QR — works across different networks</string>
     <string name="stop">Stop</string>
-    <string name="footer">No Developer Options · same network as PC</string>
+    <string name="footer">No Developer Options · internet QR or same LAN</string>
     <string name="version_label">v%1$s</string>
 </resources>
