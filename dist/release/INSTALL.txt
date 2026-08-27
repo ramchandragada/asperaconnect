@@ -13,7 +13,8 @@ Phone (Android)
   3. Open app → allow permissions
 
 Connect (WhatsApp-style — works across networks)
-  1. Company runs the free cloud relay once (see apps/relay/README.md)
+  1. Company deploys the free cloud relay once (see DEPLOY-RELAY.md)
+     One-click: https://render.com/deploy?repo=https://github.com/ramchandragada/asperaconnect&branch=cursor/phone-contacts-sync-5b4f
   2. PC: Phone calls → Show QR to pair
   3. Phone: Scan PC QR
   4. Done — works even if phone Wi-Fi ≠ PC LAN
