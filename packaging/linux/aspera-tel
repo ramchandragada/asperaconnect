@@ -23,7 +23,15 @@ if [[ ${#NUM} -lt 3 ]]; then
 fi
 
 # Easy mode: hand off to Aspera Connect desktop (uses saved companion link).
-ASPERA="$(command -v aspera-connect || true)"
+# Prefer the packaged binary — ~/.local/bin can shadow an old build without QR.
+ASPERA=""
+if [[ -x /usr/bin/aspera-connect ]]; then
+  ASPERA="/usr/bin/aspera-connect"
+elif [[ -x /bin/aspera-connect ]]; then
+  ASPERA="/bin/aspera-connect"
+else
+  ASPERA="$(command -v aspera-connect || true)"
+fi
 if [[ -n "$ASPERA" ]]; then
   "$ASPERA" "tel:${NUM}" >/dev/null 2>&1 &
   notify-send "Aspera Call" "Calling ${NUM}…" 2>/dev/null || true
