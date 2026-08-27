@@ -1,7 +1,10 @@
 package com.asperaconnect.companion
 
+import android.app.AlertDialog
 import android.Manifest
 import android.content.BroadcastReceiver
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -59,7 +62,10 @@ class MainActivity : ComponentActivity() {
     private val cameraPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) openQrScanner()
-            else Toast.makeText(this, "Camera needed to scan PC QR", Toast.LENGTH_LONG).show()
+            else {
+                Toast.makeText(this, R.string.camera_denied, Toast.LENGTH_LONG).show()
+                promptPastePairCode()
+            }
         }
 
     private val qrLauncher = registerForActivityResult(ScanContract()) { result ->
@@ -83,7 +89,7 @@ class MainActivity : ComponentActivity() {
             val p = packageManager.getPackageInfo(packageName, 0)
             "v${p.versionName}"
         } catch (_: Exception) {
-            "v0.3.9"
+            "v0.3.10"
         }
 
         refreshIp()
@@ -96,6 +102,10 @@ class MainActivity : ComponentActivity() {
 
         findViewById<Button>(R.id.scanQrButton).setOnClickListener {
             ensureCameraThenScan()
+        }
+
+        findViewById<Button>(R.id.pasteQrButton).setOnClickListener {
+            promptPastePairCode()
         }
 
         findViewById<Button>(R.id.stopButton).setOnClickListener {
@@ -121,6 +131,42 @@ class MainActivity : ComponentActivity() {
             addExtra(Intents.Scan.SCAN_TYPE, Intents.Scan.MIXED_SCAN)
         }
         qrLauncher.launch(options)
+    }
+
+    /** No camera: paste the same text the PC QR encodes (Copy pair code on desktop). */
+    private fun promptPastePairCode() {
+        val input = EditText(this).apply {
+            hint = getString(R.string.paste_qr_hint)
+            setText(readClipboardText())
+            setSelectAllOnFocus(true)
+            minLines = 3
+            setPadding(48, 32, 48, 32)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.paste_qr_title)
+            .setMessage(R.string.paste_qr_sub)
+            .setView(input)
+            .setPositiveButton(R.string.paste_qr_action) { _, _ ->
+                val raw = input.text?.toString()?.trim().orEmpty()
+                if (raw.isEmpty()) {
+                    Toast.makeText(this, R.string.paste_qr_empty, Toast.LENGTH_LONG).show()
+                } else {
+                    handleQrPayload(raw)
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun readClipboardText(): String {
+        return try {
+            val cm = getSystemService(ClipboardManager::class.java) ?: return ""
+            val clip: ClipData = cm.primaryClip ?: return ""
+            if (clip.itemCount < 1) return ""
+            clip.getItemAt(0).coerceToText(this)?.toString()?.trim().orEmpty()
+        } catch (_: Exception) {
+            ""
+        }
     }
 
     private fun handleQrPayload(raw: String) {

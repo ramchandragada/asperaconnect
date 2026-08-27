@@ -16,6 +16,7 @@ Connect (WhatsApp-style — works across networks)
   Cloud relay is LIVE: wss://aspera-connect-relay.onrender.com
   1. PC: Phone calls → Show QR to pair
   2. Phone: Scan PC QR
+     (No camera? PC: Copy pair code → send to phone → Paste pair code)
   3. Done — works even if phone Wi-Fi ≠ PC LAN
   (First connect after idle may take ~1 min while free relay wakes.)
 

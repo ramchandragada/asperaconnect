@@ -190,6 +190,24 @@
                 android:textSize="12sp" />
 
             <Button
+                android:id="@+id/pasteQrButton"
+                style="@style/Widget.Aspera.Button.Secondary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_md"
+                android:minHeight="56dp"
+                android:text="@string/paste_qr" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:gravity="center"
+                android:text="@string/paste_qr_sub"
+                android:textColor="@color/muted"
+                android:textSize="12sp" />
+
+            <Button
                 android:id="@+id/stopButton"
                 style="@style/Widget.Aspera.Button.Danger"
                 android:layout_width="match_parent"

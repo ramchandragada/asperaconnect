@@ -11,8 +11,8 @@ android {
         applicationId = "com.asperaconnect.companion"
         minSdk = 26
         targetSdk = 35
-        versionCode = 18
-        versionName = "0.3.9"
+        versionCode = 19
+        versionName = "0.3.10"
     }
 
     signingConfigs {

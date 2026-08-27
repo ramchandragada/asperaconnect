@@ -554,7 +554,8 @@ export default function App() {
             />
 
             <p style={{ color: "var(--muted)", margin: 0, lineHeight: 1.45 }}>
-              Like WhatsApp: tap <strong>Show QR to pair</strong>, phone taps <strong>Scan PC QR</strong>.
+              Like WhatsApp: tap <strong>Show QR to pair</strong>, phone taps <strong>Scan PC QR</strong>
+              (or <strong>Paste pair code</strong> if the camera is unavailable).
               Works across different networks (both need internet). Secure one-time code in the QR.
             </p>
 
@@ -566,19 +567,56 @@ export default function App() {
                 <div className="easy-status-title">Scan with phone (internet)</div>
                 <QRCodeSVG value={qrSession.qrPayload} size={220} level="M" includeMargin />
                 <div className="easy-status-detail">
-                  On the phone: <strong>Scan PC QR</strong>. Waiting…
+                  On the phone: <strong>Scan PC QR</strong>, or if no camera:
+                  <strong> Paste pair code</strong>.
                   <br />
                   Works even if phone Wi‑Fi ≠ PC LAN.
                 </div>
-                <button
-                  className="btn"
-                  onClick={async () => {
-                    await api.stopQrPairing();
-                    setQrSession(null);
-                  }}
-                >
-                  Cancel QR
-                </button>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                  <button
+                    className="btn btn-primary"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(qrSession.qrPayload);
+                        setStatusMsg("Pair code copied — send to phone, then Paste pair code");
+                      } catch {
+                        setError({
+                          code: "clipboard",
+                          title: "Copy failed",
+                          message: "Could not copy — expand Show text code and copy manually.",
+                          hint: null,
+                        });
+                      }
+                    }}
+                  >
+                    Copy pair code
+                  </button>
+                  <button
+                    className="btn"
+                    onClick={async () => {
+                      await api.stopQrPairing();
+                      setQrSession(null);
+                    }}
+                  >
+                    Cancel QR
+                  </button>
+                </div>
+                <details style={{ width: "100%", textAlign: "left", fontSize: "0.8rem", color: "var(--muted)" }}>
+                  <summary style={{ cursor: "pointer" }}>Show text code (no camera)</summary>
+                  <code
+                    style={{
+                      display: "block",
+                      marginTop: 8,
+                      padding: 8,
+                      wordBreak: "break-all",
+                      background: "var(--bg-elevated, rgba(0,0,0,0.04))",
+                      borderRadius: 6,
+                      userSelect: "all",
+                    }}
+                  >
+                    {qrSession.qrPayload}
+                  </code>
+                </details>
               </div>
             ) : (
               <button

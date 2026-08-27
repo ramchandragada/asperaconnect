@@ -54,6 +54,12 @@ Fix:     PC: Phone calls → Show QR to pair
          Phone: Scan PC QR
          First try after idle may take ~1 min (free Render cold start).
 
+Problem: Phone has no camera / camera blocked / USB camera not available
+Fix:     PC: Show QR → Copy pair code (or expand Show text code)
+         Send the text to the phone (WhatsApp / email / USB file)
+         Phone app: Paste pair code → Pair
+         Same result as scanning — no camera needed.
+
 Problem: QR pair hangs / "cloud pair failed" after long idle
 Fix:     Wait up to 60s for relay wake, try Show QR again.
          Or keep relay warm: open https://aspera-connect-relay.onrender.com/health
