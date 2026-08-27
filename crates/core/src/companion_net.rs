@@ -10,6 +10,31 @@ use tokio::sync::mpsc;
 
 type NotificationSender = mpsc::UnboundedSender<PhoneNotification>;
 
+fn companion_connect_error(host: &str, port: u16, err: std::io::Error) -> AsperaError {
+    let hint = match err.kind() {
+        std::io::ErrorKind::HostUnreachable | std::io::ErrorKind::NetworkUnreachable => {
+            format!(
+                "PC cannot reach the phone at {host}. Check: phone on same office Wi‑Fi/LAN, \
+                 IP matches the phone app, Start for calls is running, and router AP isolation is off."
+            )
+        }
+        std::io::ErrorKind::ConnectionRefused => format!(
+            "Phone at {host} refused port {port}. Open Aspera Connect on the phone and tap Start for calls."
+        ),
+        std::io::ErrorKind::TimedOut => format!(
+            "Timed out reaching {host}:{port}. Phone may be asleep, on another network, or blocked by firewall."
+        ),
+        _ if err.raw_os_error() == Some(113) => {
+            format!(
+                "No route to {host} — phone unreachable on the network. Update the IP from the phone app \
+                 (Start for calls) and ensure PC + phone are on the same LAN."
+            )
+        }
+        _ => format!("Could not connect to phone at {host}:{port}: {err}"),
+    };
+    AsperaError::Message(hint)
+}
+
 /// Connect to the Easy-mode companion control plane and complete Hello.
 pub async fn connect_companion(
     host: &str,
@@ -20,7 +45,7 @@ pub async fn connect_companion(
     let addr = format!("{host}:{port}");
     let stream = TcpStream::connect(&addr)
         .await
-        .map_err(|e| AsperaError::Message(format!("companion connect failed: {e}")))?;
+        .map_err(|e| companion_connect_error(host, port, e))?;
     let stream = complete_hello(stream, pin, Some(name_hint)).await?;
     let session = CompanionSessionState {
         connected: true,
