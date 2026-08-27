@@ -1,16 +1,22 @@
 Aspera Connect — install (2 files)
-================================
+==================================
 
-PC (Linux Mint / Ubuntu)
-  1. Download: AsperaConnect-Desktop.deb
-  2. Double-click it → Install (or: sudo apt install ./AsperaConnect-Desktop.deb)
-  3. Open "Aspera Connect" from the app menu
+Downloads
+  PC:    AsperaConnect-Desktop.deb   (0.1.0-beta.4)
+  Phone: AsperaConnect-Phone.apk     (0.3.10)
+
+  https://github.com/ramchandragada/asperaconnect/raw/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-Desktop.deb
+  https://github.com/ramchandragada/asperaconnect/raw/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-Phone.apk
+
+PC (Linux Mint / Ubuntu / Zorin)
+  1. Download AsperaConnect-Desktop.deb
+  2. Double-click → Install (or: sudo apt install ./AsperaConnect-Desktop.deb)
+  3. Open "Aspera Connect" from the app menu (not Aspera Hub)
 
 Phone (Android)
-  1. Download: AsperaConnect-Phone.apk  (open link on the phone)
-  2. If Google Play Protect says "App blocked" → see TROUBLESHOOTING.txt
-     (or IT: adb install -r AsperaConnect-Phone.apk)
-  3. Open app → allow permissions
+  1. Download AsperaConnect-Phone.apk on the phone
+  2. Install (if Play Protect blocks → TROUBLESHOOTING.txt or USB adb install -r)
+  3. Open app → allow permissions → should show v0.3.10
 
 Connect (WhatsApp-style — works across networks)
   Cloud relay is LIVE: wss://aspera-connect-relay.onrender.com
@@ -23,5 +29,3 @@ Connect (WhatsApp-style — works across networks)
 Same-network fallback (no relay): enter phone IP → Connect
 
 Something wrong?  See TROUBLESHOOTING.txt
-
-That's it.
