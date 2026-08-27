@@ -30,6 +30,14 @@ pub struct AppState {
     pub easy_mirror: std::sync::Mutex<Option<std::process::Child>>,
 }
 
+/// Keep tray menu items alive on Linux — dropping them makes GTK labels blank.
+struct TrayMenuState {
+    _menu: Menu<tauri::Wry>,
+    _show: MenuItem<tauri::Wry>,
+    _call_clipboard: MenuItem<tauri::Wry>,
+    _quit: MenuItem<tauri::Wry>,
+}
+
 impl Default for AppState {
     fn default() -> Self {
         Self {
@@ -1315,11 +1323,10 @@ fn show_main_window(app: &AppHandle) {
 fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     let show = MenuItem::with_id(app, "show", "Show Aspera Connect", true, None::<&str>)?;
     let call_clip =
-        MenuItem::with_id(app, "call_clipboard", "Call number from clipboard", true, None::<&str>)?;
+        MenuItem::with_id(app, "call_clipboard", "Call from clipboard", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Exit", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show, &call_clip, &quit])?;
 
-    // Keep the TrayIcon alive — dropping it removes the icon from the system tray.
     let tray = TrayIconBuilder::with_id("aspera-tray")
         .icon(app.default_window_icon().unwrap().clone())
         .menu(&menu)
@@ -1347,6 +1354,14 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
             }
         })
         .build(app)?;
+
+    // Must outlive setup() on Linux or tray menu text goes blank (DBUS menu labels dropped).
+    app.manage(TrayMenuState {
+        _menu: menu,
+        _show: show,
+        _call_clipboard: call_clip,
+        _quit: quit,
+    });
     app.manage(tray);
     Ok(())
 }
