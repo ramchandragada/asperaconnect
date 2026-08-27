@@ -270,6 +270,10 @@ export default function App() {
           ? t(locale, "settings")
           : t(locale, "help");
 
+  const savedHost = config.companionHost?.trim() ?? "";
+  const currentHost = companionHost.trim();
+  const ipChanged = savedHost.length > 0 && currentHost.length > 0 && savedHost !== currentHost;
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -285,9 +289,11 @@ export default function App() {
           badge={
             companion?.connected
               ? { text: "Linked", tone: "ok" }
-              : config.companionHost
-                ? { text: "Saved", tone: "warn" }
-                : { text: "Off", tone: "bad" }
+              : ipChanged
+                ? { text: "New IP", tone: "warn" }
+                : config.companionHost
+                  ? { text: "Saved", tone: "warn" }
+                  : { text: "Off", tone: "bad" }
           }
         />
         <Nav
@@ -396,8 +402,8 @@ export default function App() {
           <div className="panel fade-in" style={{ padding: "1.25rem", display: "grid", gap: "1rem", maxWidth: 520 }}>
             <EasyLinkStatus
               connected={!!companion?.connected}
-              host={companion?.device?.host ?? companionHost}
-              savedHost={config.companionHost ?? null}
+              currentHost={currentHost}
+              savedHost={savedHost || null}
               lastError={companion?.lastError ?? null}
             />
 
@@ -411,20 +417,34 @@ export default function App() {
               <input
                 className="field"
                 value={companionHost}
-                onChange={(e) => setCompanionHost(e.target.value)}
+                onChange={(e) => {
+                  setCompanionHost(e.target.value);
+                  if (companion?.lastError) {
+                    setCompanion((prev) =>
+                      prev ? { ...prev, lastError: null } : prev,
+                    );
+                  }
+                }}
                 placeholder="e.g. 192.168.1.9"
               />
+              {ipChanged ? (
+                <span style={{ color: "var(--accent)", fontSize: "0.85rem" }}>
+                  IP changed from <code>{savedHost}</code> — tap <strong>Connect for phone calls</strong>{" "}
+                  to use <code>{currentHost}</code>.
+                </span>
+              ) : null}
             </label>
 
             <button
               className="btn btn-primary"
               style={{ minHeight: 52, fontSize: "1.05rem" }}
-              disabled={busy || !companionHost.trim()}
+              disabled={busy || !currentHost}
               onClick={async () => {
                 setBusy(true);
                 setError(null);
+                await persistConfig({ ...config, companionHost: currentHost });
                 const res = await api.companionHello(
-                  companionHost,
+                  currentHost,
                   companionName,
                   companionPin || undefined,
                 );
@@ -441,7 +461,7 @@ export default function App() {
                 setCompanion(res.data ?? null);
                 setConfig(await api.getConfig());
                 setStatusMsg("Connected — syncing contacts…");
-                await syncContacts(companionHost);
+                await syncContacts(currentHost);
               }}
             >
               Connect for phone calls
@@ -766,12 +786,12 @@ function Nav({
 
 function EasyLinkStatus({
   connected,
-  host,
+  currentHost,
   savedHost,
   lastError,
 }: {
   connected: boolean;
-  host: string;
+  currentHost: string;
   savedHost: string | null;
   lastError: string | null;
 }) {
@@ -780,7 +800,7 @@ function EasyLinkStatus({
       <div className="easy-status easy-status-ok" role="status">
         <div className="easy-status-title">Connected</div>
         <div className="easy-status-detail">
-          Phone ready at <code>{host}</code>. Hub click-to-call works.
+          Phone ready at <code>{currentHost}</code>. Hub click-to-call works.
         </div>
       </div>
     );
@@ -793,12 +813,28 @@ function EasyLinkStatus({
       </div>
     );
   }
+  if (
+    savedHost &&
+    currentHost &&
+    savedHost !== currentHost
+  ) {
+    return (
+      <div className="easy-status easy-status-warn" role="status">
+        <div className="easy-status-title">Phone IP changed</div>
+        <div className="easy-status-detail">
+          Saved IP was <code>{savedHost}</code>. Tap <strong>Connect for phone calls</strong> with{" "}
+          <code>{currentHost}</code> (from the phone app).
+        </div>
+      </div>
+    );
+  }
   if (savedHost) {
     return (
       <div className="easy-status easy-status-warn" role="status">
-        <div className="easy-status-title">Phone IP saved</div>
+        <div className="easy-status-title">Not connected yet</div>
         <div className="easy-status-detail">
-          Tap <strong>Connect for phone calls</strong> (IP <code>{savedHost}</code>).
+          Phone IP <code>{savedHost}</code> is saved. Tap <strong>Connect for phone calls</strong>{" "}
+          (phone must show <strong>Start for calls</strong>).
         </div>
       </div>
     );
