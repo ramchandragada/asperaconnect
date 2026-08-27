@@ -1000,27 +1000,8 @@ fn register_tel_handler_linux() -> Result<String, AsperaError> {
     std::fs::create_dir_all(&bin_dir).map_err(|e| AsperaError::Message(e.to_string()))?;
     std::fs::create_dir_all(&apps).map_err(|e| AsperaError::Message(e.to_string()))?;
 
+    const SCRIPT: &str = include_str!("../../../../packaging/linux/aspera-tel");
     let script_path = bin_dir.join("aspera-tel");
-    const SCRIPT: &str = r#"#!/usr/bin/env bash
-set -euo pipefail
-RAW="${1:-}"
-[[ -z "$RAW" ]] && { notify-send "Aspera Call" "No phone number provided" 2>/dev/null || true; exit 1; }
-NUM="$RAW"
-NUM="${NUM#tel:}"; NUM="${NUM#TEL:}"; NUM="${NUM#callto:}"; NUM="${NUM#CALLTO:}"
-NUM="$(printf '%b' "${NUM//%/\\x}")"
-NUM="$(echo "$NUM" | sed 's/[?\;#].*//; s/[^0-9+]//g')"
-[[ ${#NUM} -lt 3 ]] && { notify-send "Aspera Call" "Invalid number: $RAW" 2>/dev/null || true; exit 1; }
-ADB="$(command -v adb || true)"
-[[ -z "$ADB" ]] && { notify-send "Aspera Call" "adb not found — sudo apt install adb" 2>/dev/null || true; exit 1; }
-SERIAL="$("$ADB" devices 2>/dev/null | awk '/\tdevice$/{print $1; exit}')"
-[[ -z "$SERIAL" ]] && { notify-send "Aspera Call" "No phone connected (USB / wireless debugging)" 2>/dev/null || true; exit 1; }
-if ! "$ADB" -s "$SERIAL" shell am start -a android.intent.action.CALL -d "tel:${NUM}" >/dev/null 2>&1; then
-  "$ADB" -s "$SERIAL" shell am start -a android.intent.action.DIAL -d "tel:${NUM}" >/dev/null 2>&1 || true
-  notify-send "Aspera Call" "Opened dialer for ${NUM} — tap Call on phone" 2>/dev/null || true
-else
-  notify-send "Aspera Call" "Calling ${NUM} via phone / BT headset" 2>/dev/null || true
-fi
-"#;
     std::fs::write(&script_path, SCRIPT).map_err(|e| AsperaError::Message(e.to_string()))?;
     #[cfg(unix)]
     {
@@ -1058,7 +1039,7 @@ StartupNotify=false\n"
             .status();
     }
     Ok(
-        "Registered Aspera Connect Call for tel: / callto: (dials via ADB). Click a phone number in Zoho/Hub."
+        "Registered Aspera Connect Call for tel: / callto: links. Keep the desktop app connected, then click numbers in Zoho or your browser."
             .into(),
     )
 }

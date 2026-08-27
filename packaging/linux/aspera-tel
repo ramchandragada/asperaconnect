@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Aspera Connect — handle tel:/callto: and place call on connected Android phone.
-# Dial via ADB only. Do NOT launch a Tauri debug binary (that needs vite on :1420
-# and shows "Could not connect to localhost: Connection refused").
+# Prefers the running desktop app (Easy mode / companion). Falls back to ADB.
 set -euo pipefail
 
 RAW="${1:-}"
@@ -10,7 +9,6 @@ if [[ -z "$RAW" ]]; then
   exit 1
 fi
 
-# Strip scheme and URL-encoding
 NUM="$RAW"
 NUM="${NUM#tel:}"
 NUM="${NUM#TEL:}"
@@ -24,23 +22,30 @@ if [[ ${#NUM} -lt 3 ]]; then
   exit 1
 fi
 
+# Easy mode: hand off to Aspera Connect desktop (uses saved companion link).
+ASPERA="$(command -v aspera-connect || true)"
+if [[ -n "$ASPERA" ]]; then
+  "$ASPERA" "tel:${NUM}" >/dev/null 2>&1 &
+  notify-send "Aspera Call" "Calling ${NUM}…" 2>/dev/null || true
+  exit 0
+fi
+
+# Pro mode fallback: ADB + USB/wireless debugging.
 ADB="$(command -v adb || true)"
 if [[ -z "$ADB" ]]; then
-  notify-send "Aspera Call" "adb not found — sudo apt install adb" 2>/dev/null || true
+  notify-send "Aspera Call" "Install Aspera Connect on PC first" 2>/dev/null || true
   exit 1
 fi
 
-# Prefer a ready device
 SERIAL="$("$ADB" devices 2>/dev/null | awk '/\tdevice$/{print $1; exit}')"
 if [[ -z "$SERIAL" ]]; then
-  notify-send "Aspera Call" "No phone connected (USB / wireless debugging)" 2>/dev/null || true
+  notify-send "Aspera Call" "Open Aspera Connect on PC and Connect for phone calls" 2>/dev/null || true
   exit 1
 fi
 
-# Try direct CALL; fall back to DIAL
 if ! "$ADB" -s "$SERIAL" shell am start -a android.intent.action.CALL -d "tel:${NUM}" >/dev/null 2>&1; then
   "$ADB" -s "$SERIAL" shell am start -a android.intent.action.DIAL -d "tel:${NUM}" >/dev/null 2>&1 || true
   notify-send "Aspera Call" "Opened dialer for ${NUM} — tap Call on phone" 2>/dev/null || true
 else
-  notify-send "Aspera Call" "Calling ${NUM} via phone / BT headset" 2>/dev/null || true
+  notify-send "Aspera Call" "Calling ${NUM} via phone" 2>/dev/null || true
 fi

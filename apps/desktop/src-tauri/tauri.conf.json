@@ -47,6 +47,7 @@
         "files": {
           "/usr/share/doc/aspera-connect/TESTING.md": "../../../TESTING.md",
           "/usr/share/doc/aspera-connect/README.md": "../../../README.md",
+          "/usr/share/doc/aspera-connect/TROUBLESHOOTING.txt": "../../../dist/release/TROUBLESHOOTING.txt",
           "/usr/share/applications/aspera-connect.desktop": "../../../packaging/linux/aspera-connect.desktop"
         }
       }

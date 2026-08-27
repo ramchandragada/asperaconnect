@@ -15,4 +15,6 @@ Connect
   1. On PC: Phone calls → enter phone IP → Connect for phone calls
   2. Same office Wi-Fi (same band if router has 2.4 GHz and 5 GHz)
 
+Something wrong?  See TROUBLESHOOTING.txt (same folder as these files).
+
 That's it.

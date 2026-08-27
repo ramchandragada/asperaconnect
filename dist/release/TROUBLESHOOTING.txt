@@ -1,0 +1,67 @@
+Aspera Connect — if something goes wrong
+=========================================
+
+PC INSTALL
+----------
+Problem: .deb won't install / "dependency error"
+Fix:     sudo apt update
+         sudo apt install ./AsperaConnect-Desktop.deb
+
+Problem: App not in menu after install
+Fix:     Log out and log back in, or run: aspera-connect
+
+PHONE INSTALL
+-------------
+Problem: "Install blocked" / can't install APK
+Fix:     Settings → Security → allow install from Chrome (or Files app)
+         Download again → open APK → Install
+
+Problem: App installs but calls don't work
+Fix:     Open app → allow Phone, Answer calls, Contacts, Notifications
+         Tap "Start for calls" — keep the notification
+
+Problem: Phone stops working after a while (OnePlus / Xiaomi / Samsung)
+Fix:     Settings → Battery → Aspera Connect → Unrestricted / Don't optimize
+
+CONNECT (PC ↔ PHONE)
+--------------------
+Problem: "Not connected" / "unreachable" / "no route"
+Fix:     1. Phone: Start for calls (notification visible)
+         2. PC and phone on SAME Wi-Fi band (both 2.4 OR both 5 GHz)
+         3. Copy IP from phone app → paste in PC → Connect
+         4. Or click "Find phone on network"
+
+Problem: Worked on 5 GHz, fails on 2.4 GHz (or opposite)
+Fix:     IP changes when you switch band — update IP or use Find phone
+
+Problem: "Find phone on network" finds nothing
+Fix:     Phone must show "Start for calls" / Waiting
+         Same office network (not guest Wi-Fi)
+         Try entering IP manually from phone screen
+
+Problem: Connected before, stopped working
+Fix:     Phone may have closed the service — open app → Start for calls again
+         Check phone battery optimization (see above)
+
+USING THE APP
+-------------
+Problem: "Call from clipboard" fails
+Fix:     Linux Mint:  sudo apt install xclip
+         KDE/Wayland: sudo apt install wl-clipboard
+         Copy a phone number first, then tray → Call from clipboard
+
+Problem: Zoho / browser phone link doesn't dial
+Fix:     1. PC app open and Connected (sidebar shows Linked)
+         2. Click "Make Aspera handle tel: links" once
+         3. Try the link again
+
+Problem: Contacts empty / sync failed
+Fix:     Allow Contacts on phone → Connect again → Sync from phone
+
+Problem: Hang up doesn't work
+Fix:     On phone allow "Answer/end calls" permission → try again
+
+Still stuck?
+------------
+Note: phone model, PC version (Linux Mint?), error text on red banner
+Send to IT / Shree with a screenshot.

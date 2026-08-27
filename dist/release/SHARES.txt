@@ -1,6 +1,8 @@
-Give testers these 2 files (+ this note):
+Give testers these files:
 
   AsperaConnect-Desktop.deb   → PC install (double-click)
-  AsperaConnect-Phone.apk    → Phone install (open on Android)
+  AsperaConnect-Phone.apk      → Phone install (open on Android)
+  INSTALL.txt                  → 3-step setup
+  TROUBLESHOOTING.txt          → if something goes wrong
 
-See INSTALL.txt for 3-step setup.
+See INSTALL.txt for setup.

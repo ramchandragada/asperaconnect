@@ -2,7 +2,7 @@
 /**
  * Collect release artifacts with simple names for non-technical testers.
  */
-import { cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -63,35 +63,25 @@ if (!apkCopied) {
 
 writeFileSync(
   join(out, "INSTALL.txt"),
-  `Aspera Connect — install (2 files)
-================================
-
-PC (Linux Mint / Ubuntu)
-  1. Download: AsperaConnect-Desktop.deb
-  2. Double-click it → Install (or: sudo apt install ./AsperaConnect-Desktop.deb)
-  3. Open "Aspera Connect" from the app menu
-
-Phone (Android)
-  1. Download: AsperaConnect-Phone.apk  (open link on the phone)
-  2. Allow install → Install
-  3. Open app → Start for calls → note the IP address
-
-Connect
-  1. On PC: Phone calls → enter phone IP → Connect for phone calls
-  2. Same office Wi-Fi (same band if router has 2.4 GHz and 5 GHz)
-
-That's it.
-`,
+  readFileSync(join(root, "dist/release/INSTALL.txt"), "utf8"),
 );
+
+const troubleSrc = join(root, "dist/release/TROUBLESHOOTING.txt");
+const troubleDest = join(out, "TROUBLESHOOTING.txt");
+if (existsSync(troubleSrc) && troubleSrc !== troubleDest) {
+  cpSync(troubleSrc, troubleDest);
+}
 
 writeFileSync(
   join(out, "SHARES.txt"),
-  `Give testers these 2 files (+ this note):
+  `Give testers these files:
 
   AsperaConnect-Desktop.deb   → PC install (double-click)
-  AsperaConnect-Phone.apk    → Phone install (open on Android)
+  AsperaConnect-Phone.apk      → Phone install (open on Android)
+  INSTALL.txt                  → 3-step setup
+  TROUBLESHOOTING.txt          → if something goes wrong
 
-See INSTALL.txt for 3-step setup.
+See INSTALL.txt for setup.
 `,
 );
 
@@ -99,3 +89,4 @@ console.log("Release folder ready:", out);
 console.log(" -", DESKTOP_DEB);
 if (apkCopied) console.log(" -", PHONE_APK);
 console.log(" - INSTALL.txt");
+console.log(" - TROUBLESHOOTING.txt");

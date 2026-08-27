@@ -764,7 +764,7 @@ export default function App() {
 
         {view === "help" && (
           <div className="panel fade-in" style={{ padding: "1.25rem", lineHeight: 1.55, maxWidth: 640 }}>
-            <h3 style={{ marginTop: 0 }}>Click-to-call</h3>
+            <h3 style={{ marginTop: 0 }}>Quick start</h3>
             <ol>
               <li>
                 Phone: open Aspera Connect → <strong>Start for calls</strong> (allow Phone + Answer calls +
@@ -781,12 +781,33 @@ export default function App() {
                 Use <strong>Hang up</strong> on the banner to end the call from the PC.
               </li>
               <li>
-                Optional: register <code>tel:</code> for Zoho / browser links.
+                Optional: register <code>tel:</code> for Zoho / browser links (app must stay connected).
               </li>
             </ol>
-            <p style={{ color: "var(--muted)" }}>
-              Close the window to the tray — dialing and cached contacts stay available while the phone
-              notification is up.
+            <h3>Common problems</h3>
+            <ul style={{ paddingLeft: "1.2rem", margin: 0 }}>
+              <li>
+                <strong>Can&apos;t connect</strong> — same Wi‑Fi band on PC and phone (2.4 vs 5 GHz); phone
+                shows <strong>Start for calls</strong>; try <strong>Find phone on network</strong>.
+              </li>
+              <li>
+                <strong>Clipboard call fails</strong> — Linux Mint: <code>sudo apt install xclip</code>.
+                KDE: <code>sudo apt install wl-clipboard</code>.
+              </li>
+              <li>
+                <strong>Phone stops listening</strong> — battery optimization off for Aspera Connect; reopen
+                app and tap Start for calls.
+              </li>
+              <li>
+                <strong>No contacts</strong> — allow Contacts on phone, then Connect or Sync from phone.
+              </li>
+              <li>
+                <strong>Zoho link does nothing</strong> — register tel handler once; keep PC app open and
+                Linked.
+              </li>
+            </ul>
+            <p style={{ color: "var(--muted)", marginBottom: 0 }}>
+              Full troubleshooting list ships with the installer as <code>TROUBLESHOOTING.txt</code>.
             </p>
           </div>
         )}
