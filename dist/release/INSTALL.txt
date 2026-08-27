@@ -8,8 +8,9 @@ PC (Linux Mint / Ubuntu)
 
 Phone (Android)
   1. Download: AsperaConnect-Phone.apk  (open link on the phone)
-  2. Allow install → Install
-  3. Open app → Start for calls → note the IP address
+  2. If Google Play Protect says "App blocked" → see TROUBLESHOOTING.txt (Play Protect section)
+  3. Allow install → Install
+  4. Open app → Start for calls → note the IP address
 
 Connect
   1. On PC: Phone calls → enter phone IP → Connect for phone calls
