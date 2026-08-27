@@ -10,8 +10,8 @@ use tokio::sync::{mpsc, Mutex};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 /// Default public relay (override in Settings / ASPERA_RELAY_URL / config).
-/// Deploy `apps/relay` (Render/Fly/Docker) and point clients at your `wss://` URL.
-pub const DEFAULT_RELAY_URL: &str = "wss://aspera-relay.onrender.com";
+/// Live on Render: https://aspera-connect-relay.onrender.com
+pub const DEFAULT_RELAY_URL: &str = "wss://aspera-connect-relay.onrender.com";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

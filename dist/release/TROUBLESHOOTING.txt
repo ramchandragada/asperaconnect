@@ -45,12 +45,18 @@ Problem: Different Wi‑Fi / PC on LAN, phone elsewhere
 Fix:     Use internet QR (WhatsApp-style):
            PC → Show QR to pair
            Phone → Scan PC QR
-         Requires the company cloud relay (apps/relay — deploy once free on Render).
-         Set relayUrl in ~/.config/aspera-connect/config.json to your wss:// URL.
+         Company relay is LIVE: wss://aspera-connect-relay.onrender.com
+         New builds use this by default. Older installs: set relayUrl in
+         ~/.config/aspera-connect/config.json to that wss:// URL.
 
 Problem: How to pair without typing IP
 Fix:     PC: Phone calls → Show QR to pair
          Phone: Scan PC QR
+         First try after idle may take ~1 min (free Render cold start).
+
+Problem: QR pair hangs / "cloud pair failed" after long idle
+Fix:     Wait up to 60s for relay wake, try Show QR again.
+         Or keep relay warm: open https://aspera-connect-relay.onrender.com/health
 
 Problem: "Not connected" / "unreachable" / "no route" (LAN mode)
 Fix:     1. Phone: Start for calls (notification visible)

@@ -18,12 +18,13 @@ Aspera Connect uses the same idea: a small **relay** both PC and phone dial into
 2. https://render.com → New → Web Service → connect repo
 3. Root directory: `apps/relay`
 4. Build: `npm install` · Start: `npm start`
-5. Copy the public URL, e.g. `https://aspera-relay.onrender.com`
-6. On each PC set relay (or rebuild with default):
+5. Copy the public URL (company default is already live):
+   `https://aspera-connect-relay.onrender.com`
+6. Desktop default is `wss://aspera-connect-relay.onrender.com`. Override if needed:
 
 ```bash
 # ~/.config/aspera-connect/config.json
-# "relayUrl": "wss://YOUR-SERVICE.onrender.com"
+# "relayUrl": "wss://aspera-connect-relay.onrender.com"
 ```
 
 ### Option B: Docker
