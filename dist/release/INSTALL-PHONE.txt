@@ -1,15 +1,15 @@
 Aspera Connect companion — phone install
 ========================================
 
-Version: 0.3.5 (signed v1+v2+v3)
+Version: 0.3.6 (signed v1+v2+v3) — refreshes phone IP when Wi‑Fi band changes
 
-  rm -f /tmp/AsperaConnect-0.3.5.apk
-  curl -L --http1.1 -o /tmp/AsperaConnect-0.3.5.apk \
-    "https://raw.githubusercontent.com/ramchandragada/asperaconnect/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-0.3.5.apk"
-  # expect sha256 6642126c59e3474fc931990c5e6737f8cbba30e25aae3ef35d586bb589841b96
-  sha256sum /tmp/AsperaConnect-0.3.5.apk
-  adb install -t /tmp/AsperaConnect-0.3.5.apk
+  rm -f /tmp/AsperaConnect-0.3.6.apk
+  curl -L --http1.1 -o /tmp/AsperaConnect-0.3.6.apk \
+    "https://raw.githubusercontent.com/ramchandragada/asperaconnect/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-0.3.6.apk"
+  # expect sha256 2215e20113d55f540984a309381f3fa8ee27ad9e22e1b84f8f1184f2fc71147b
+  sha256sum /tmp/AsperaConnect-0.3.6.apk
+  adb install -t /tmp/AsperaConnect-0.3.6.apk
 
 If that fails:
   adb uninstall com.asperaconnect.companion || true
-  adb install -r -t /tmp/AsperaConnect-0.3.5.apk
+  adb install -r -t /tmp/AsperaConnect-0.3.6.apk

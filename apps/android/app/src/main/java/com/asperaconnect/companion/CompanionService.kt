@@ -8,6 +8,11 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.net.ConnectivityManager
+import android.net.LinkProperties
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.Uri
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
@@ -54,6 +59,8 @@ class CompanionService : Service() {
     private val pinRef = AtomicReference<String?>(null)
     private val linkedClients = AtomicInteger(0)
     private var foregroundReady = false
+    private var connectivityManager: ConnectivityManager? = null
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -72,14 +79,15 @@ class CompanionService : Service() {
                     .putBoolean(PREF_WANT_LISTEN, true)
                     .apply()
                 acquireLocks()
+                registerNetworkCallback()
+                refreshLocalIp("service start")
                 ensureForeground(
-                    "Ready for PC calls — you can leave this app. ${guessLocalIpv4() ?: ""}",
+                    "Ready for PC calls — you can leave this app. ${lastLocalIp ?: ""}",
                 )
                 registerNsd()
                 if (running.compareAndSet(false, true)) {
                     serverJob = scope.launch { serve() }
                 }
-                lastLocalIp = guessLocalIpv4()
                 if (linkedClients.get() == 0) {
                     linkedPcName = null
                     broadcastStatus(STATUS_LISTENING, null)
@@ -125,6 +133,67 @@ class CompanionService : Service() {
         } catch (e: Exception) {
             Log.w(TAG, "wake lock: ${e.message}")
         }
+    }
+
+    private fun registerNetworkCallback() {
+        if (networkCallback != null) return
+        val cm = getSystemService(ConnectivityManager::class.java) ?: return
+        connectivityManager = cm
+        val request = NetworkRequest.Builder()
+            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+            .addTransportType(NetworkCapabilities.TRANSPORT_ETHERNET)
+            .build()
+        networkCallback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                onNetworkChanged("available")
+            }
+
+            override fun onLost(network: Network) {
+                onNetworkChanged("lost")
+            }
+
+            override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) {
+                onNetworkChanged("link changed")
+            }
+        }
+        cm.registerNetworkCallback(request, networkCallback!!)
+    }
+
+    private fun unregisterNetworkCallback() {
+        try {
+            networkCallback?.let { connectivityManager?.unregisterNetworkCallback(it) }
+        } catch (_: Exception) {
+        }
+        networkCallback = null
+        connectivityManager = null
+    }
+
+    private fun onNetworkChanged(reason: String) {
+        if (!running.get()) return
+        val prev = lastLocalIp
+        refreshLocalIp(reason)
+        if (lastLocalIp == null || lastLocalIp == prev) return
+        Log.i(TAG, "Wi‑Fi IP changed: $prev -> $lastLocalIp ($reason)")
+        val text = when (lastStatus) {
+            STATUS_LINKED -> "Linked to ${linkedPcName ?: "PC"} — click-to-call ready"
+            else -> "Listening for PC — ${lastLocalIp ?: "Wi‑Fi"}:$PORT"
+        }
+        ensureForeground(text)
+        broadcastStatus(lastStatus, linkedPcName)
+        reregisterNsd()
+    }
+
+    private fun refreshLocalIp(@Suppress("UNUSED_PARAMETER") reason: String) {
+        lastLocalIp = guessLocalIpv4(this)
+    }
+
+    private fun reregisterNsd() {
+        try {
+            registrationListener?.let { nsdManager?.unregisterService(it) }
+        } catch (_: Exception) {
+        }
+        registrationListener = null
+        registerNsd()
     }
 
     private fun releaseLocks() {
@@ -210,7 +279,7 @@ class CompanionService : Service() {
                 setPackage(packageName)
                 putExtra(EXTRA_STATUS, status)
                 putExtra(EXTRA_PC_NAME, pcName)
-                putExtra(EXTRA_IP, lastLocalIp ?: guessLocalIpv4())
+                putExtra(EXTRA_IP, lastLocalIp ?: guessLocalIpv4(this@CompanionService))
             },
         )
     }
@@ -285,7 +354,7 @@ class CompanionService : Service() {
                             )
                             .put("reason", if (ok) JSONObject.NULL else "bad_pin")
                             .put("model", Build.MODEL)
-                            .put("ip", guessLocalIpv4() ?: JSONObject.NULL)
+                            .put("ip", guessLocalIpv4(this@CompanionService) ?: JSONObject.NULL)
                         writer.write(ack.toString())
                         writer.newLine()
                         writer.flush()
@@ -368,7 +437,8 @@ class CompanionService : Service() {
             if (authed) {
                 val left = linkedClients.decrementAndGet().coerceAtLeast(0)
                 if (left == 0) {
-                    ensureForeground("Listening for PC — ${guessLocalIpv4() ?: "Wi‑Fi"}:$PORT")
+                    refreshLocalIp("client disconnected")
+                    ensureForeground("Listening for PC — ${lastLocalIp ?: "Wi‑Fi"}:$PORT")
                     broadcastStatus(STATUS_LISTENING, null)
                 }
             }
@@ -517,6 +587,7 @@ class CompanionService : Service() {
         running.set(false)
         linkedClients.set(0)
         serverJob?.cancel()
+        unregisterNetworkCallback()
         try {
             registrationListener?.let { nsdManager?.unregisterService(it) }
         } catch (_: Exception) {
@@ -584,12 +655,35 @@ class CompanionService : Service() {
             context.stopService(Intent(context, CompanionService::class.java))
         }
 
-        fun guessLocalIpv4(): String? {
+        fun guessLocalIpv4(context: Context? = null): String? {
+            context?.let { ctx ->
+                try {
+                    val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+                    val network = cm?.activeNetwork ?: return@let
+                    val props = cm.getLinkProperties(network) ?: return@let
+                    for (la in props.linkAddresses) {
+                        val addr = la.address
+                        if (addr is Inet4Address && !addr.isLoopbackAddress && !addr.isLinkLocalAddress) {
+                            return addr.hostAddress
+                        }
+                    }
+                } catch (_: Exception) {
+                }
+            }
             return try {
                 NetworkInterface.getNetworkInterfaces()?.toList()
+                    ?.sortedBy { iface ->
+                        when {
+                            iface.name.startsWith("wlan") -> 0
+                            iface.name.startsWith("eth") -> 1
+                            else -> 2
+                        }
+                    }
                     ?.flatMap { it.inetAddresses.toList() }
                     ?.firstOrNull { addr ->
-                        addr is Inet4Address && !addr.isLoopbackAddress
+                        addr is Inet4Address &&
+                            !addr.isLoopbackAddress &&
+                            !addr.isLinkLocalAddress
                     }
                     ?.hostAddress
             } catch (_: Exception) {

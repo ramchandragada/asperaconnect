@@ -4,9 +4,24 @@ No Developer Options / USB debugging required.
 
 **Purpose:** PC → phone click-to-call only (Hub / Zoho / `tel:`).
 
-Phone and PC must be on the **same office network** so they can reach each other
-(typical: phone on office Wi‑Fi, PC on wired LAN). They do **not** need the same
-Wi‑Fi SSID.
+Phone and PC must be on the **same reachable network** so they can talk to each other
+(typical: phone on office Wi‑Fi, PC on wired LAN on the same router). They do **not** need the
+same Wi‑Fi SSID, but they **must** be able to ping each other at the IP you enter.
+
+### Dual-band Wi‑Fi (2.4 GHz vs 5 GHz)
+
+Many routers advertise one network name but put each band on a **separate segment**. The phone
+may show **192.168.1.9** on 2.4 GHz and **192.168.1.8** on 5 GHz — only the IP on the band your
+PC can reach will work.
+
+**What to do:**
+
+1. Put **PC and phone on the same band** (both 2.4 or both 5 GHz), **or** use wired LAN on the same router.
+2. On the phone, open Aspera Connect and copy the IP shown after **Start for calls**.
+3. On the PC, use **Find phone on network** (auto-discovery) or paste that IP, then **Connect for phone calls**.
+4. If connect fails with “unreachable” or “no route”, switch bands and try again — the app will auto-search when connect fails.
+
+Some routers have **AP / client isolation** — turn that off for the office LAN if devices still cannot reach each other.
 
 ## What works
 

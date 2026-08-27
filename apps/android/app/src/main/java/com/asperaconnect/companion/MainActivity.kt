@@ -66,7 +66,7 @@ class MainActivity : ComponentActivity() {
             val p = packageManager.getPackageInfo(packageName, 0)
             "v${p.versionName}"
         } catch (_: Exception) {
-            "v0.3.5"
+            "v0.3.6"
         }
 
         refreshIp()
@@ -79,7 +79,7 @@ class MainActivity : ComponentActivity() {
 
         findViewById<Button>(R.id.stopButton).setOnClickListener {
             CompanionService.stop(this)
-            applyLinkStatus(CompanionService.STATUS_STOPPED, null, CompanionService.guessLocalIpv4())
+            applyLinkStatus(CompanionService.STATUS_STOPPED, null, CompanionService.guessLocalIpv4(this))
             statusText.text = getString(R.string.footer)
         }
     }
@@ -88,7 +88,7 @@ class MainActivity : ComponentActivity() {
         val pin = pinInput.text?.toString().orEmpty()
         CompanionService.start(this, pin)
         refreshIp()
-        val ip = CompanionService.guessLocalIpv4() ?: "…"
+        val ip = CompanionService.guessLocalIpv4(this) ?: "…"
         applyLinkStatus(CompanionService.STATUS_LISTENING, null, ip)
         statusText.text = "Ready — you can leave this app. PC uses IP $ip"
         ensureCallAndContactsPermissions()
@@ -171,7 +171,7 @@ class MainActivity : ComponentActivity() {
 
     private fun refreshIp() {
         val ip = CompanionService.lastLocalIp
-            ?: CompanionService.guessLocalIpv4()
+            ?: CompanionService.guessLocalIpv4(this)
             ?: "Connect to office Wi‑Fi"
         ipText.text = ip
     }

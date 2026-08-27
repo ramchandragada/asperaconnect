@@ -199,6 +199,64 @@ export default function App() {
     setStatusMsg(`Synced ${n} contact${n === 1 ? "" : "s"} from phone`);
   }
 
+  async function discoverPhone(autoFill = true, manageBusy = true) {
+    if (manageBusy) setBusy(true);
+    const res = await api.discoverCompanions();
+    if (manageBusy) setBusy(false);
+    if (!res.ok) return { ok: false as const, error: res.error, devices: [] as CompanionDevice[] };
+    const devices = res.data ?? [];
+    setDiscoveredCompanions(devices);
+    if (autoFill && devices[0]) {
+      setCompanionHost(devices[0].host);
+      if (devices[0].name) setCompanionName(devices[0].name);
+    }
+    return { ok: true as const, devices };
+  }
+
+  async function connectCompanion(host: string, tryDiscoverOnFailure = true) {
+    setBusy(true);
+    setError(null);
+    await persistConfig({ ...config!, companionHost: host });
+    let res = await api.companionHello(host, companionName, companionPin || undefined);
+    let discovered: CompanionDevice[] = [];
+    if (!res.ok && tryDiscoverOnFailure) {
+      const discovery = await discoverPhone(true, false);
+      discovered = discovery.devices;
+      if (discovery.ok && discovered.length > 0) {
+        const foundHost = discovered[0].host;
+        if (foundHost !== host) {
+          setCompanionHost(foundHost);
+          await persistConfig({ ...config!, companionHost: foundHost });
+          res = await api.companionHello(foundHost, companionName, companionPin || undefined);
+          host = foundHost;
+        } else {
+          setStatusMsg("Phone found on network — retrying connect…");
+          res = await api.companionHello(foundHost, companionName, companionPin || undefined);
+        }
+      }
+    }
+    setBusy(false);
+    if (!res.ok) {
+      const baseMsg = res.error?.message ?? "Connection failed";
+      const hint =
+        discoveryHintForError(baseMsg) ??
+        (discovered.length === 0
+          ? " Try Find phone on network or match the IP shown on the phone app."
+          : null);
+      setCompanion({
+        connected: false,
+        device: null,
+        mirroring: false,
+        lastError: hint ? `${baseMsg}${hint}` : baseMsg,
+      });
+      return setError(res.error ?? null);
+    }
+    setCompanion(res.data ?? null);
+    setConfig(await api.getConfig());
+    setStatusMsg("Connected — syncing contacts…");
+    await syncContacts(host);
+  }
+
   async function hangUp() {
     setBusy(true);
     setError(null);
@@ -409,7 +467,8 @@ export default function App() {
 
             <p style={{ color: "var(--muted)", margin: 0, lineHeight: 1.45 }}>
               On the phone open Aspera Connect → <strong>Start for calls</strong>. Enter the phone IP
-              below, then connect. Hub / Zoho click-to-call dials every time.
+              below, then connect. PC and phone must be on the same reachable network (same Wi‑Fi band
+              if your router splits 2.4 GHz and 5 GHz).
             </p>
 
             <label style={{ display: "grid", gap: 6 }}>
@@ -435,37 +494,32 @@ export default function App() {
               ) : null}
             </label>
 
-            <button
-              className="btn btn-primary"
-              style={{ minHeight: 52, fontSize: "1.05rem" }}
-              disabled={busy || !currentHost}
-              onClick={async () => {
-                setBusy(true);
-                setError(null);
-                await persistConfig({ ...config, companionHost: currentHost });
-                const res = await api.companionHello(
-                  currentHost,
-                  companionName,
-                  companionPin || undefined,
-                );
-                setBusy(false);
-                if (!res.ok) {
-                  setCompanion({
-                    connected: false,
-                    device: null,
-                    mirroring: false,
-                    lastError: res.error?.message ?? "Connection failed",
-                  });
-                  return setError(res.error ?? null);
-                }
-                setCompanion(res.data ?? null);
-                setConfig(await api.getConfig());
-                setStatusMsg("Connected — syncing contacts…");
-                await syncContacts(currentHost);
-              }}
-            >
-              Connect for phone calls
-            </button>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                className="btn btn-primary"
+                style={{ flex: 1, minWidth: 200, minHeight: 52, fontSize: "1.05rem" }}
+                disabled={busy || !currentHost}
+                onClick={() => void connectCompanion(currentHost)}
+              >
+                Connect for phone calls
+              </button>
+              <button
+                className="btn"
+                style={{ minHeight: 52 }}
+                disabled={busy}
+                onClick={async () => {
+                  const result = await discoverPhone(true);
+                  if (!result.ok) return setError(result.error ?? null);
+                  setStatusMsg(
+                    result.devices.length
+                      ? `Found ${result.devices.length} phone(s) — IP filled in`
+                      : "No phone found — tap Start for calls on the phone first",
+                  );
+                }}
+              >
+                Find phone on network
+              </button>
+            </div>
 
             <button
               className="btn"
@@ -500,20 +554,16 @@ export default function App() {
                   <button
                     className="btn"
                     onClick={async () => {
-                      setBusy(true);
-                      const res = await api.discoverCompanions();
-                      setBusy(false);
-                      if (!res.ok) return setError(res.error ?? null);
-                      setDiscoveredCompanions(res.data ?? []);
-                      if (res.data?.[0]) setCompanionHost(res.data[0].host);
+                      const result = await discoverPhone(true);
+                      if (!result.ok) return setError(result.error ?? null);
                       setStatusMsg(
-                        res.data?.length
-                          ? `Found ${res.data.length} phone(s)`
+                        result.devices.length
+                          ? `Found ${result.devices.length} phone(s)`
                           : "No phone found — tap Start for calls on the phone first",
                       );
                     }}
                   >
-                    Find phone on network
+                    Refresh discovery
                   </button>
                   <button
                     className="btn"
@@ -806,10 +856,16 @@ function EasyLinkStatus({
     );
   }
   if (lastError) {
+    const dualBandHint = isNetworkReachabilityError(lastError)
+      ? " Dual-band Wi‑Fi (2.4 GHz vs 5 GHz) often uses different IPs — put PC and phone on the same band, use Find phone on network, or copy the IP from the phone app."
+      : "";
     return (
       <div className="easy-status easy-status-bad" role="status">
         <div className="easy-status-title">Not connected</div>
-        <div className="easy-status-detail">{lastError}</div>
+        <div className="easy-status-detail">
+          {lastError}
+          {dualBandHint}
+        </div>
       </div>
     );
   }
@@ -847,4 +903,19 @@ function EasyLinkStatus({
       </div>
     </div>
   );
+}
+
+function isNetworkReachabilityError(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  return (
+    lower.includes("unreachable") ||
+    lower.includes("no route") ||
+    lower.includes("timed out") ||
+    lower.includes("cannot reach")
+  );
+}
+
+function discoveryHintForError(msg: string): string | null {
+  if (!isNetworkReachabilityError(msg)) return null;
+  return "If you switched Wi‑Fi bands (2.4 vs 5 GHz), use Find phone on network or the IP shown on the phone.";
 }

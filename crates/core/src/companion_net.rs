@@ -14,8 +14,8 @@ fn companion_connect_error(host: &str, port: u16, err: std::io::Error) -> Aspera
     let hint = match err.kind() {
         std::io::ErrorKind::HostUnreachable | std::io::ErrorKind::NetworkUnreachable => {
             format!(
-                "PC cannot reach the phone at {host}. Check: phone on same office Wi‑Fi/LAN, \
-                 IP matches the phone app, Start for calls is running, and router AP isolation is off."
+                "PC cannot reach the phone at {host}. Check: phone and PC on the same reachable network \
+                 (same Wi‑Fi band if 2.4 GHz / 5 GHz are split), IP matches the phone app, Start for calls is running."
             )
         }
         std::io::ErrorKind::ConnectionRefused => format!(
@@ -26,8 +26,8 @@ fn companion_connect_error(host: &str, port: u16, err: std::io::Error) -> Aspera
         ),
         _ if err.raw_os_error() == Some(113) => {
             format!(
-                "No route to {host} — phone unreachable on the network. Update the IP from the phone app \
-                 (Start for calls) and ensure PC + phone are on the same LAN."
+                "No route to {host} — phone unreachable on the network. If your router splits 2.4 GHz and 5 GHz, \
+                 put PC and phone on the same band, use Find phone on network, or copy the IP from the phone app."
             )
         }
         _ => format!("Could not connect to phone at {host}:{port}: {err}"),
