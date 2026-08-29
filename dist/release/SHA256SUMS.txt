@@ -1,2 +1,1 @@
-a7055628dd8f40038e5c0c7288b1ea3f1659e555c095a07d88361cfcbbdd28a8  dist/release/AsperaConnect-Desktop.deb
-be55e8db72c7d1bc43ae40484bb46afb95a14246c41271da0c726671e003ff9b  dist/release/AsperaConnect-Phone.apk
+8b0a328af77ee0774ac5b56c3cff4c4e99c4ec6e6a0c5bda52e6536fe2e3fec9  dist/release/AsperaConnect-Phone.apk

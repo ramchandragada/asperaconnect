@@ -2,6 +2,9 @@
 build/
 .gradle/
 local.properties
+play-upload.keystore
+play-upload.jks
+play-upload.properties
 *.iml
 .idea/
 captures/

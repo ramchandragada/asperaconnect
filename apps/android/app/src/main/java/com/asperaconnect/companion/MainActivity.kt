@@ -89,7 +89,7 @@ class MainActivity : ComponentActivity() {
             val p = packageManager.getPackageInfo(packageName, 0)
             "v${p.versionName}"
         } catch (_: Exception) {
-            "v0.3.10"
+            "v0.3.11"
         }
 
         refreshIp()

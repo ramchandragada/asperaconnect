@@ -1,7 +1,17 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+
+val playPropsFile = rootProject.file("play-upload.properties")
+val playProps: Properties? =
+    if (playPropsFile.exists()) {
+        Properties().apply { playPropsFile.inputStream().use { load(it) } }
+    } else {
+        null
+    }
 
 android {
     namespace = "com.asperaconnect.companion"
@@ -11,13 +21,12 @@ android {
         applicationId = "com.asperaconnect.companion"
         minSdk = 26
         targetSdk = 35
-        versionCode = 19
-        versionName = "0.3.10"
+        versionCode = 20
+        versionName = "0.3.11"
     }
 
     signingConfigs {
         create("sideload") {
-            // Checked-in sideload key — public demo builds only (not Play Store).
             storeFile = rootProject.file("aspera-sideload.keystore")
             storePassword = "aspera-connect"
             keyAlias = "aspera"
@@ -25,6 +34,14 @@ android {
             enableV1Signing = true
             enableV2Signing = true
             enableV3Signing = true
+        }
+        if (playProps != null) {
+            create("play") {
+                storeFile = rootProject.file(playProps.getProperty("storeFile", "play-upload.keystore"))
+                storePassword = playProps.getProperty("storePassword")
+                keyAlias = playProps.getProperty("keyAlias", "aspera-upload")
+                keyPassword = playProps.getProperty("keyPassword")
+            }
         }
     }
 
@@ -35,7 +52,19 @@ android {
             signingConfig = signingConfigs.getByName("sideload")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
+            )
+        }
+        create("play") {
+            initWith(getByName("release"))
+            matchingFallbacks += listOf("release")
+            isDebuggable = false
+            if (playProps != null) {
+                signingConfig = signingConfigs.getByName("play")
+            }
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
             )
         }
     }
@@ -57,4 +86,3 @@ dependencies {
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }
-

@@ -1,82 +1,66 @@
-# Publish Aspera Connect on Google Play (Internal testing)
+# Google Play Internal testing — The GST Co
+Account: **marketing@thegstco.com**
 
-**This is the only employee-proof phone install.** No USB, no Developer Options, no Play Protect fights.
+This replaces USB / Play Protect hell. Employees install from Play like any app.
 
-Employees then: Play Store → search / open invite link → Install. Done.
+## Privacy policy URL (paste into Play Console)
 
-## What you need (once)
+https://cdn.jsdelivr.net/gh/ramchandragada/asperaconnect@cursor/phone-contacts-sync-5b4f/website/privacy.html
 
-1. Google account (company email fine)
-2. [Google Play Console](https://play.google.com/console) — **$25 one-time** registration
-3. ~30–60 minutes the first time
-
-## Steps
-
-### 1. Create the app
-
-1. Play Console → **Create app**
-2. App name: **Aspera Connect**
-3. Default language: English
-4. App or game: **App**
-5. Free
-6. Declarations: accept
-
-### 2. Signing (important)
-
-- Prefer **Play App Signing** (Google holds the app signing key).
-- Create a **new upload keystore** on your PC (do **not** use the public `aspera-sideload.keystore` from git for Play).
+## One-time on your Linux PC (upload key)
 
 ```bash
-keytool -genkeypair -v -keystore aspera-play-upload.keystore -alias aspera-upload \
-  -keyalg RSA -keysize 2048 -validity 10000
+cd ~/asperaconnect   # or clone the repo
+git checkout cursor/phone-contacts-sync-5b4f
+git pull
+chmod +x scripts/create-play-upload-keystore.sh scripts/build-play-aab.sh
+./scripts/create-play-upload-keystore.sh
+# BACK UP apps/android/play-upload.keystore + play-upload.properties
+./scripts/build-play-aab.sh
+# Output: dist/release/AsperaConnect-Phone-Play.aab
 ```
 
-Keep that keystore + passwords in a password manager. Never commit it.
+## Play Console clicks (marketing@thegstco.com)
 
-In `apps/android/app/build.gradle.kts`, add a `play` signing config pointing at that keystore and build:
+1. https://play.google.com/console → sign in as **marketing@thegstco.com**
+2. **Create app**
+   - Name: `Aspera Connect`
+   - Language: English (United States) or English (India)
+   - App
+   - Free
+   - Declarations: accept
+3. **All apps → Aspera Connect → Grow → Store presence → Main store listing**
+   - Paste text from `docs/play-store/LISTING.txt`
+   - App icon: use `apps/android/app/src/main/res/mipmap-*/` or export 512×512
+   - Phone screenshots: 2+ images of the companion screen (you can screenshot the phone)
+   - Privacy policy: URL above
+4. **Policy → App content**
+   - Privacy policy: same URL
+   - Data safety: use `docs/play-store/DATA-SAFETY.txt`
+   - Target audience: 18+ / workplace
+   - News app: No
+   - COVID: No
+   - Ads: No
+5. **Release → Testing → Internal testing**
+   - Create email list: add employee Gmail / Workspace addresses (+ yours)
+   - Create new release → upload `AsperaConnect-Phone-Play.aab`
+   - Release name: `0.3.11`
+   - Roll out to Internal testing
+6. Copy **join link** / how testers join → send to employees (WhatsApp)
 
-```bash
-cd apps/android
-./gradlew assembleRelease   # or a dedicated playRelease once configured
-```
+## What employees do
 
-Upload the `.aab` (Android App Bundle) when Play asks — Forge/Gradle:
+1. Open join link on phone (same Google account as in the list)
+2. Install **Aspera Connect** from Play
+3. Start for calls → Scan PC QR
 
-```bash
-./gradlew bundleRelease
-```
+No APK. No USB. No Developer Options.
 
-### 3. Store listing (can be minimal for Internal testing)
+## Package identity
 
-- Short description: `Click-to-call from Linux Aspera Hub / Zoho to your Android phone.`
-- Full description: pair with QR, works across networks, contacts sync, hang up.
-- Screenshots: 2 phone screenshots of the companion app
-- Privacy policy URL: host a short page (required even for internal)
+- Application id: `com.asperaconnect.companion`
+- First Play versionCode: `20` / versionName `0.3.11`
 
-### 4. Internal testing track
+## After it works
 
-1. **Testing → Internal testing → Create email list**
-2. Add employee Gmail / Workspace emails
-3. Create a release → upload AAB → review notes: `Internal company click-to-call companion`
-4. Roll out to Internal testing
-5. Copy the **join link** (or share Play Console invite)
-
-### 5. What employees do
-
-1. Open the **join / opt-in link** once on the phone (must use the same Google account)
-2. Play Store → Aspera Connect → **Install**
-3. Open → Start for calls → Scan PC QR
-
-No APK. No USB. No “unknown sources”.
-
-### 6. Closed testing (optional next)
-
-When ready for more people: **Closed testing** with a larger email list, still no public listing.
-
-## Why sideload keeps failing
-
-Play Protect and OEMs (Xiaomi, some Samsungs) **hard-block** unknown APKs even with “Scan apps” off. USB/`adb` bypasses that for IT, but it is the wrong employee path. Play Store is the fix.
-
-## After Play is live
-
-Update employee share text to the Play link only. Keep APK for emergency IT installs.
+Share only the Play join/install link in `SHARES.txt`. Keep APK for emergency IT only.
