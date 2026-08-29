@@ -13,19 +13,15 @@ Fix:     Log out and log back in, or run: aspera-connect
 PHONE INSTALL
 -------------
 Problem: Installing the APK is too hard / Play Protect / USB hell
-Fix:     Do NOT use Developer Options or USB for employees.
+Fix:     Use Google Play Internal testing (live):
+           https://play.google.com/apps/internaltest/4701460117553190758
+         Or PC → Get phone app (Play) → scan QR.
+         Phone Google account must be on the tester list.
+         No USB. No Developer Options.
 
-         Easy path (no cable):
-           PC Aspera Connect → Get phone app (no USB) → phone scans QR
-           Or open on phone:
-             https://cdn.jsdelivr.net/gh/ramchandragada/asperaconnect@cursor/phone-contacts-sync-5b4f/website/phone.html
-           Download → allow Install unknown apps for Chrome → Install
-
-         Soft Play Protect ("More details" → "Install anyway"): use Install anyway.
-
-         Hard Play Protect (only OK button):
-           Sideload will keep failing. Publish on Google Play Internal testing
-           (docs/PLAY-STORE-INTERNAL.md). Employees install from Play Store.
+Problem: Play says app not available
+Fix:     Sign in with an allow-listed Gmail, or ask IT to add your email
+         to Internal testers.
 
 Problem: Google Play Protect — "App blocked to protect your device" (only OK button)
 Fix:     HARD BLOCK — USB is a temporary IT workaround only (INSTALL-PHONE-USB.txt).

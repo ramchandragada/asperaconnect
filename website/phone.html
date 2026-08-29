@@ -3,154 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#0c1210" />
-    <title>Install Aspera Connect (Phone)</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
+    <meta http-equiv="refresh" content="0;url=https://play.google.com/apps/internaltest/4701460117553190758" />
+    <title>Install Aspera Connect</title>
     <style>
-      :root {
-        --bg0: #0b1411;
-        --bg1: #12201a;
-        --ink: #eef6f1;
-        --muted: #9bb5a8;
-        --accent: #3ecf8e;
-        --accent-ink: #062016;
-        --warn: #f0c14b;
-        --danger: #ff8f8f;
-        --font-display: "Fraunces", Georgia, serif;
-        --font-body: "Source Sans 3", system-ui, sans-serif;
-      }
-      * { box-sizing: border-box; }
-      html, body { margin: 0; min-height: 100%; }
-      body {
-        font-family: var(--font-body);
-        color: var(--ink);
-        background:
-          radial-gradient(700px 420px at 80% -10%, rgba(62, 207, 142, 0.22), transparent 55%),
-          radial-gradient(500px 360px at 0% 100%, rgba(47, 140, 100, 0.18), transparent 50%),
-          linear-gradient(165deg, var(--bg0), var(--bg1) 55%, #0e1814);
-      }
-      main {
-        max-width: 420px;
-        margin: 0 auto;
-        padding: 2rem 1.25rem 3.5rem;
-      }
-      .brand {
-        font-family: var(--font-display);
-        font-size: 0.95rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--accent);
-        margin: 0 0 0.75rem;
-      }
-      h1 {
-        font-family: var(--font-display);
-        font-size: clamp(2rem, 8vw, 2.6rem);
-        line-height: 1.08;
-        margin: 0 0 0.65rem;
-        letter-spacing: -0.03em;
-      }
-      .lede {
-        color: var(--muted);
-        font-size: 1.05rem;
-        line-height: 1.45;
-        margin: 0 0 1.5rem;
-      }
-      .btn {
-        display: block;
-        width: 100%;
-        text-align: center;
-        text-decoration: none;
-        font-weight: 700;
-        font-size: 1.15rem;
-        padding: 1.05rem 1.2rem;
-        border-radius: 14px;
-        background: linear-gradient(135deg, #2bb673, var(--accent));
-        color: var(--accent-ink);
-        box-shadow: 0 10px 28px rgba(46, 180, 120, 0.28);
-        border: none;
-        cursor: pointer;
-      }
-      .btn:active { transform: scale(0.98); }
-      .hint {
-        margin: 0.75rem 0 0;
-        text-align: center;
-        color: var(--muted);
-        font-size: 0.9rem;
-      }
-      section {
-        margin-top: 1.75rem;
-        padding: 1.1rem 1.15rem;
-        border-radius: 16px;
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(238, 246, 241, 0.08);
-      }
-      section h2 {
-        margin: 0 0 0.65rem;
-        font-size: 1.05rem;
-      }
-      ol {
-        margin: 0;
-        padding-left: 1.2rem;
-        color: var(--muted);
-        line-height: 1.55;
-      }
-      ol li { margin: 0.35rem 0; }
-      ol strong { color: var(--ink); }
-      .note {
-        margin-top: 1rem;
-        font-size: 0.92rem;
-        color: var(--warn);
-        line-height: 1.4;
-      }
-      .no-usb {
-        margin-top: 1.25rem;
-        font-size: 0.95rem;
-        color: var(--muted);
-        text-align: center;
-      }
-      .no-usb strong { color: var(--ink); }
-      a.quiet {
-        color: var(--accent);
-      }
+      body { font-family: system-ui, sans-serif; max-width: 28rem; margin: 3rem auto; padding: 1rem; line-height: 1.45; }
+      a.btn { display: block; text-align: center; background: #3ecf8e; color: #062016; font-weight: 700;
+        text-decoration: none; padding: 1rem; border-radius: 12px; margin: 1.5rem 0; }
     </style>
   </head>
   <body>
-    <main>
-      <p class="brand">Aspera Connect</p>
-      <h1>Install on your phone</h1>
-      <p class="lede">
-        One tap. No USB cable. No Developer Options. No USB debugging.
-      </p>
-
-      <a
-        class="btn"
-        id="download"
-        href="https://github.com/ramchandragada/asperaconnect/raw/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-Phone.apk"
-      >Download Aspera Connect</a>
-      <p class="hint">Opens the APK (v0.3.11). Then tap Install.</p>
-
-      <section>
-        <h2>After download</h2>
-        <ol>
-          <li>Open the downloaded file (Chrome → Downloads).</li>
-          <li>If asked, allow <strong>Install unknown apps</strong> for Chrome / Files — only once.</li>
-          <li>Tap <strong>Install</strong>.</li>
-          <li>Open the app → allow Phone / Contacts → <strong>Start for calls</strong>.</li>
-          <li>On the PC: <strong>Show QR to pair</strong> → phone <strong>Scan PC QR</strong>.</li>
-        </ol>
-        <p class="note">
-          If Google says “App blocked” and you see <strong>More details → Install anyway</strong>, use that.
-          If there is only an OK button (hard block), your company should publish this app on
-          <strong>Google Play Internal testing</strong> — then install from Play like any app (no APK fight).
-        </p>
-      </section>
-
-      <p class="no-usb">
-        <strong>Still blocked?</strong> Ask IT for the Play Store link — not a USB cable.<br />
-        <a class="quiet" href="https://github.com/ramchandragada/asperaconnect/raw/cursor/phone-contacts-sync-5b4f/docs/PLAY-STORE-INTERNAL.md">Play Internal testing guide</a>
-      </p>
-    </main>
+    <h1>Install Aspera Connect</h1>
+    <p>Company phones install from Google Play Internal testing.</p>
+    <a class="btn" href="https://play.google.com/apps/internaltest/4701460117553190758">Open Play join link</a>
+    <p>Use an allow-listed Google account. Then: Start for calls → Scan PC QR.</p>
   </body>
 </html>

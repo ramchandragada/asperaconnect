@@ -1,34 +1,13 @@
-Aspera Connect — install (2 files)
-==================================
+Aspera Connect — install
+========================
 
-Downloads
-  PC:    AsperaConnect-Desktop.deb   (0.1.0-beta.5)
-  Phone: AsperaConnect-Phone.apk     (0.3.11)
+PHONE (do this first)
+  Open on the phone:
+  https://play.google.com/apps/internaltest/4701460117553190758
+  Become a tester → Install from Play → Start for calls
 
+PC
   https://github.com/ramchandragada/asperaconnect/raw/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-Desktop.deb
-  Phone page: https://cdn.jsdelivr.net/gh/ramchandragada/asperaconnect@cursor/phone-contacts-sync-5b4f/website/phone.html
-  https://github.com/ramchandragada/asperaconnect/raw/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-Phone.apk
+  Install → Aspera Connect → Show QR to pair → phone Scan PC QR
 
-PC (Linux Mint / Ubuntu / Zorin)
-  1. Download AsperaConnect-Desktop.deb
-  2. Double-click → Install (or: sudo apt install ./AsperaConnect-Desktop.deb)
-  3. Open "Aspera Connect" from the app menu (not Aspera Hub)
-
-Phone (Android)
-  Easy: open on phone (or PC → Get phone app QR):
-    https://cdn.jsdelivr.net/gh/ramchandragada/asperaconnect@cursor/phone-contacts-sync-5b4f/website/phone.html
-  Tap Download → Install (allow Chrome unknown apps once). No USB.
-  Hard Play Protect block → company Play Internal testing (docs/PLAY-STORE-INTERNAL.md)
-  Version should show v0.3.11
-
-Connect (WhatsApp-style — works across networks)
-  Cloud relay is LIVE: wss://aspera-connect-relay.onrender.com
-  1. PC: Phone calls → Show QR to pair
-  2. Phone: Scan PC QR
-     (No camera? PC: Copy pair code → send to phone → Paste pair code)
-  3. Done — works even if phone Wi-Fi ≠ PC LAN
-  (First connect after idle may take ~1 min while free relay wakes.)
-
-Same-network fallback (no relay): enter phone IP → Connect
-
-Something wrong?  See TROUBLESHOOTING.txt
+Relay: wss://aspera-connect-relay.onrender.com

@@ -20,9 +20,9 @@ import { FirstRunWizard } from "./components/FirstRunWizard";
 import asperaLogo from "./assets/aspera-logo.png";
 import "./styles/app.css";
 
-/** Mobile install page — open on phone (no USB / no Developer Options). */
+/** Phone install — Google Play Internal testing join link. */
 const PHONE_INSTALL_URL =
-  "https://cdn.jsdelivr.net/gh/ramchandragada/asperaconnect@cursor/phone-contacts-sync-5b4f/website/phone.html";
+  "https://play.google.com/apps/internaltest/4701460117553190758";
 
 export default function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -569,12 +569,12 @@ export default function App() {
                 className="easy-status easy-status-ok"
                 style={{ display: "grid", gap: 12, justifyItems: "center", textAlign: "center" }}
               >
-                <div className="easy-status-title">Install phone app (no USB)</div>
+                <div className="easy-status-title">Install phone app (Play Store)</div>
                 <QRCodeSVG value={PHONE_INSTALL_URL} size={220} level="M" includeMargin />
                 <div className="easy-status-detail">
-                  Phone camera / Chrome → scan this QR → <strong>Download</strong> → Install.
+                  Phone scans this QR → become a tester → <strong>Install from Play</strong>.
                   <br />
-                  No Developer Options. No cable.
+                  No USB. No Developer Options. No APK fight.
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
                   <button
@@ -689,7 +689,7 @@ export default function App() {
                     setStatusMsg("Phone scans this QR to download the app — no USB");
                   }}
                 >
-                  Get phone app (no USB)
+                  Get phone app (Play)
                 </button>
               </div>
             )}

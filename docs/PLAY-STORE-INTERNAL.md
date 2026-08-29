@@ -1,9 +1,14 @@
-# Google Play Internal testing — The GST Co
-Account: **marketing@thegstco.com**
+## Live Internal testing
 
-This replaces USB / Play Protect hell. Employees install from Play like any app.
+**Join link (WhatsApp this to employees):**  
+https://play.google.com/apps/internaltest/4701460117553190758
 
-## Privacy policy URL (paste into Play Console)
+Version: **0.3.11** (versionCode 20) — Active on Internal testing.  
+Testers: marketing@thegstco.com, ramchandragada@gmail.com, gadaramchandra@gmail.com, cashaameet@gmail.com
+
+Employees: open link on phone → become a tester → Install from Play → Scan PC QR.
+
+
 
 https://cdn.jsdelivr.net/gh/ramchandragada/asperaconnect@cursor/phone-contacts-sync-5b4f/website/privacy.html
 
