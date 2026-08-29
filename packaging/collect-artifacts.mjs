@@ -42,7 +42,7 @@ if (!debs.length) {
 const debSrc = debs[debs.length - 1];
 const debDest = join(out, DESKTOP_DEB);
 cpSync(debSrc, debDest);
-cpSync(debSrc, join(out, "aspera-connect_0.1.0-beta.4_amd64.deb"));
+cpSync(debSrc, join(out, "aspera-connect_0.1.0-beta.5_amd64.deb"));
 
 // Phone APK — prefer newest built release APK, else copy versioned file
 const apkCandidates = [

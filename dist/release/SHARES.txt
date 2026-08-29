@@ -1,49 +1,8 @@
-Aspera Connect — employee downloads
-===================================
+Give testers these files:
 
-Share these two links (same branch, always latest files):
+  AsperaConnect-Desktop.deb   → PC install (double-click)
+  AsperaConnect-Phone.apk      → Phone install (open on Android)
+  INSTALL.txt                  → 3-step setup
+  TROUBLESHOOTING.txt          → if something goes wrong
 
-PC (Linux) — AsperaConnect-Desktop.deb  (0.1.0-beta.4)
-  https://github.com/ramchandragada/asperaconnect/raw/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-Desktop.deb
-
-Phone (Android) — AsperaConnect-Phone.apk  (0.3.10)
-  https://github.com/ramchandragada/asperaconnect/raw/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-Phone.apk
-
-Install guide:
-  https://github.com/ramchandragada/asperaconnect/raw/cursor/phone-contacts-sync-5b4f/dist/release/INSTALL.txt
-
-If something fails:
-  https://github.com/ramchandragada/asperaconnect/raw/cursor/phone-contacts-sync-5b4f/dist/release/TROUBLESHOOTING.txt
-
-
-PC install (Ubuntu / Mint / Zorin)
----------------------------------
-1. Download the .deb (link above)
-2. Double-click → Install
-   or:
-   sudo apt install -y ./AsperaConnect-Desktop.deb
-3. Open "Aspera Connect" from the app menu
-   (not Aspera Hub, not "Aspera Connect Call")
-4. If an old copy was installed from ~/.local/bin, remove it:
-   mv ~/.local/bin/aspera-connect ~/.local/bin/aspera-connect.old 2>/dev/null || true
-
-
-Phone install
--------------
-1. Open the .apk link on the phone → Download → Install
-   (allow Install unknown apps for Chrome/Files if asked)
-2. Or from PC with USB:
-   adb install -r AsperaConnect-Phone.apk
-3. Open app → allow permissions → Start for calls
-4. Check version shows v0.3.10
-
-
-Pair (any network — no IP typing)
----------------------------------
-1. PC: Phone calls → Show QR to pair
-2. Phone: Scan PC QR
-   (No camera: PC Copy pair code → phone Paste pair code)
-3. Done
-
-Cloud relay (already live): wss://aspera-connect-relay.onrender.com
-First pair after long idle may take ~1 minute (free server wake-up).
+See INSTALL.txt for setup.

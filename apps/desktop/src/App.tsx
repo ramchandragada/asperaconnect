@@ -20,6 +20,10 @@ import { FirstRunWizard } from "./components/FirstRunWizard";
 import asperaLogo from "./assets/aspera-logo.png";
 import "./styles/app.css";
 
+/** Mobile install page — open on phone (no USB / no Developer Options). */
+const PHONE_INSTALL_URL =
+  "https://cdn.jsdelivr.net/gh/ramchandragada/asperaconnect@cursor/phone-contacts-sync-5b4f/website/phone.html";
+
 export default function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [error, setError] = useState<UserFacingError | null>(null);
@@ -32,6 +36,7 @@ export default function App() {
   const [companionPin, setCompanionPin] = useState("");
   const [discoveredCompanions, setDiscoveredCompanions] = useState<CompanionDevice[]>([]);
   const [qrSession, setQrSession] = useState<QrPairSession | null>(null);
+  const [showPhoneInstallQr, setShowPhoneInstallQr] = useState(false);
   const [contactsCache, setContactsCache] = useState<ContactsCache>({ contacts: [] });
   const [callHistory, setCallHistory] = useState<CallHistory>({ entries: [] });
   const [favorites, setFavorites] = useState<FavoritesStore>({ favorites: [] });
@@ -559,6 +564,44 @@ export default function App() {
               Works across different networks (both need internet). Secure one-time code in the QR.
             </p>
 
+            {showPhoneInstallQr ? (
+              <div
+                className="easy-status easy-status-ok"
+                style={{ display: "grid", gap: 12, justifyItems: "center", textAlign: "center" }}
+              >
+                <div className="easy-status-title">Install phone app (no USB)</div>
+                <QRCodeSVG value={PHONE_INSTALL_URL} size={220} level="M" includeMargin />
+                <div className="easy-status-detail">
+                  Phone camera / Chrome → scan this QR → <strong>Download</strong> → Install.
+                  <br />
+                  No Developer Options. No cable.
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                  <button
+                    className="btn btn-primary"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(PHONE_INSTALL_URL);
+                        setStatusMsg("Install link copied — open it on the phone browser");
+                      } catch {
+                        setError({
+                          code: "clipboard",
+                          title: "Copy failed",
+                          message: PHONE_INSTALL_URL,
+                          hint: null,
+                        });
+                      }
+                    }}
+                  >
+                    Copy install link
+                  </button>
+                  <button className="btn" onClick={() => setShowPhoneInstallQr(false)}>
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
             {qrSession ? (
               <div
                 className="easy-status easy-status-ok"
@@ -619,22 +662,36 @@ export default function App() {
                 </details>
               </div>
             ) : (
-              <button
-                className="btn btn-primary"
-                style={{ minHeight: 52, fontSize: "1.05rem" }}
-                disabled={busy}
-                onClick={async () => {
-                  setBusy(true);
-                  setError(null);
-                  const res = await api.startQrPairing();
-                  setBusy(false);
-                  if (!res.ok) return setError(res.error ?? null);
-                  setQrSession(res.data ?? null);
-                  setStatusMsg("Show this QR to the phone — works across networks");
-                }}
-              >
-                Show QR to pair
-              </button>
+              <div style={{ display: "grid", gap: 8 }}>
+                <button
+                  className="btn btn-primary"
+                  style={{ minHeight: 52, fontSize: "1.05rem" }}
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    setError(null);
+                    setShowPhoneInstallQr(false);
+                    const res = await api.startQrPairing();
+                    setBusy(false);
+                    if (!res.ok) return setError(res.error ?? null);
+                    setQrSession(res.data ?? null);
+                    setStatusMsg("Show this QR to the phone — works across networks");
+                  }}
+                >
+                  Show QR to pair
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => {
+                    setQrSession(null);
+                    setShowPhoneInstallQr(true);
+                    setStatusMsg("Phone scans this QR to download the app — no USB");
+                  }}
+                >
+                  Get phone app (no USB)
+                </button>
+              </div>
             )}
 
             <label style={{ display: "grid", gap: 6 }}>

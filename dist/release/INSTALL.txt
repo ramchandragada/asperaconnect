@@ -2,10 +2,11 @@ Aspera Connect — install (2 files)
 ==================================
 
 Downloads
-  PC:    AsperaConnect-Desktop.deb   (0.1.0-beta.4)
+  PC:    AsperaConnect-Desktop.deb   (0.1.0-beta.5)
   Phone: AsperaConnect-Phone.apk     (0.3.10)
 
   https://github.com/ramchandragada/asperaconnect/raw/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-Desktop.deb
+  Phone page: https://cdn.jsdelivr.net/gh/ramchandragada/asperaconnect@cursor/phone-contacts-sync-5b4f/website/phone.html
   https://github.com/ramchandragada/asperaconnect/raw/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-Phone.apk
 
 PC (Linux Mint / Ubuntu / Zorin)
@@ -14,9 +15,11 @@ PC (Linux Mint / Ubuntu / Zorin)
   3. Open "Aspera Connect" from the app menu (not Aspera Hub)
 
 Phone (Android)
-  1. Download AsperaConnect-Phone.apk on the phone
-  2. Install (if Play Protect blocks → TROUBLESHOOTING.txt or USB adb install -r)
-  3. Open app → allow permissions → should show v0.3.10
+  Easy: open on phone (or PC → Get phone app QR):
+    https://cdn.jsdelivr.net/gh/ramchandragada/asperaconnect@cursor/phone-contacts-sync-5b4f/website/phone.html
+  Tap Download → Install (allow Chrome unknown apps once). No USB.
+  Hard Play Protect block → company Play Internal testing (docs/PLAY-STORE-INTERNAL.md)
+  Version should show v0.3.10
 
 Connect (WhatsApp-style — works across networks)
   Cloud relay is LIVE: wss://aspera-connect-relay.onrender.com

@@ -12,25 +12,28 @@ Fix:     Log out and log back in, or run: aspera-connect
 
 PHONE INSTALL
 -------------
+Problem: Installing the APK is too hard / Play Protect / USB hell
+Fix:     Do NOT use Developer Options or USB for employees.
+
+         Easy path (no cable):
+           PC Aspera Connect → Get phone app (no USB) → phone scans QR
+           Or open on phone:
+             https://cdn.jsdelivr.net/gh/ramchandragada/asperaconnect@cursor/phone-contacts-sync-5b4f/website/phone.html
+           Download → allow Install unknown apps for Chrome → Install
+
+         Soft Play Protect ("More details" → "Install anyway"): use Install anyway.
+
+         Hard Play Protect (only OK button):
+           Sideload will keep failing. Publish on Google Play Internal testing
+           (docs/PLAY-STORE-INTERNAL.md). Employees install from Play Store.
+
 Problem: Google Play Protect — "App blocked to protect your device" (only OK button)
-Fix:     This is a HARD BLOCK. Turning off "Scan apps" is often not enough.
-         Best fix for office phones — install from a PC with USB (bypasses Play Protect):
-
-           See INSTALL-PHONE-USB.txt  (or run on PC with phone plugged in):
-             sudo apt install -y adb
-             # enable USB debugging on phone, plug cable, Allow
-             adb install -r /path/to/AsperaConnect-Phone.apk
-
-         Soft-block only (if you see "More details" → "Install anyway"):
-           Use that button.
-
-         Soft-block attempts that sometimes work:
-           Play Store → profile → Play Protect → gear → turn OFF Scan apps
-           Confirm "Turn off" (not just pause) → reboot phone → try APK again
+Fix:     HARD BLOCK — USB is a temporary IT workaround only (INSTALL-PHONE-USB.txt).
+         Real fix: Play Store Internal testing for company phones.
 
 Problem: "Install blocked" / can't install APK (unknown sources)
-Fix:     Settings → Security → Install unknown apps → allow Chrome or Files
-         Download again → open APK → Install
+Fix:     Settings → Apps → Special access → Install unknown apps → allow Chrome
+         (Not Developer Options.) Download again → Install
 
 Problem: App installs but calls don't work
 Fix:     Open app → allow Phone, Answer calls, Contacts, Notifications

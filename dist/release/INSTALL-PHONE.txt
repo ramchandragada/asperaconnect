@@ -1,15 +1,36 @@
-Aspera Connect companion — phone install
-========================================
+Aspera Connect — phone install (simple)
+=======================================
 
-Version: 0.3.10 (signed sideload)
+Goal: NO USB cable, NO Developer Options, NO USB debugging.
 
-Direct download:
-  https://github.com/ramchandragada/asperaconnect/raw/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-Phone.apk
+--------------------------------------------------------------------
+BEST (company) — Google Play Internal testing
+--------------------------------------------------------------------
+IT publishes once (see docs/PLAY-STORE-INTERNAL.md).
+Employees: open invite link → Install from Play Store.
+Zero Play Protect drama.
 
-If Play Protect blocks — use USB:
-  sudo apt install -y adb
-  curl -L --http1.1 -o /tmp/AsperaConnect-Phone.apk \
-    "https://github.com/ramchandragada/asperaconnect/raw/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-Phone.apk"
-  adb install -r /tmp/AsperaConnect-Phone.apk
+--------------------------------------------------------------------
+TODAY (sideload, still no USB)
+--------------------------------------------------------------------
+On the PHONE browser, open:
 
-Open app → check v0.3.10 → Start for calls → Scan PC QR (or Paste pair code).
+  https://cdn.jsdelivr.net/gh/ramchandragada/asperaconnect@cursor/phone-contacts-sync-5b4f/website/phone.html
+
+Or scan the "Get phone app" QR on the PC Aspera Connect window.
+
+1. Tap Download Aspera Connect
+2. Open the APK → allow Install unknown apps for Chrome (once)
+3. Install → open app → should show v0.3.10
+4. Start for calls → Scan PC QR on the PC
+
+If Play Protect shows "More details" → "Install anyway": use that.
+
+If Play Protect shows ONLY "OK" (hard block):
+  Sideload will keep failing on this phone.
+  Use Google Play Internal testing (above) — do NOT waste time on USB.
+
+--------------------------------------------------------------------
+USB (IT emergency only — not for employees)
+--------------------------------------------------------------------
+See INSTALL-PHONE-USB.txt
