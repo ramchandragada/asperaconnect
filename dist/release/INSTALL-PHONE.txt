@@ -1,36 +1,22 @@
 Aspera Connect — phone install (simple)
 =======================================
 
-Goal: NO USB cable, NO Developer Options, NO USB debugging.
+BEST — Google Play Internal testing (marketing@thegstco.com)
+--------------------------------------------------------------------
+See docs/PLAY-STORE-INTERNAL.md
+Employees install from Play Store. No USB. No Play Protect fight.
 
+TODAY — sideload still works (no USB)
 --------------------------------------------------------------------
-BEST (company) — Google Play Internal testing
---------------------------------------------------------------------
-IT publishes once (see docs/PLAY-STORE-INTERNAL.md).
-Employees: open invite link → Install from Play Store.
-Zero Play Protect drama.
-
---------------------------------------------------------------------
-TODAY (sideload, still no USB)
---------------------------------------------------------------------
-On the PHONE browser, open:
+On the PHONE browser:
 
   https://cdn.jsdelivr.net/gh/ramchandragada/asperaconnect@cursor/phone-contacts-sync-5b4f/website/phone.html
 
-Or scan the "Get phone app" QR on the PC Aspera Connect window.
+Or PC Aspera Connect → Get phone app (no USB) → scan QR.
 
-1. Tap Download Aspera Connect
-2. Open the APK → allow Install unknown apps for Chrome (once)
-3. Install → open app → should show v0.3.10
-4. Start for calls → Scan PC QR on the PC
+1. Download → allow Install unknown apps for Chrome once → Install
+2. Soft Play Protect → Install anyway
+3. Hard block (OK only) → use Play Internal testing instead of USB
+4. App version should show v0.3.11
 
-If Play Protect shows "More details" → "Install anyway": use that.
-
-If Play Protect shows ONLY "OK" (hard block):
-  Sideload will keep failing on this phone.
-  Use Google Play Internal testing (above) — do NOT waste time on USB.
-
---------------------------------------------------------------------
-USB (IT emergency only — not for employees)
---------------------------------------------------------------------
-See INSTALL-PHONE-USB.txt
+USB (IT emergency only): INSTALL-PHONE-USB.txt
