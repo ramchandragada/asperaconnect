@@ -19,6 +19,7 @@ Allow-listed emails:
   ramchandragada@gmail.com
   gadaramchandra@gmail.com
   cashaameet@gmail.com
+  thegstco9@gmail.com
 
 If "not available": that Gmail is not on the list — ask IT to add it.
 
