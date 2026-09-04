@@ -15,10 +15,11 @@ No USB. No Developer Options. No Play Protect fight.
 Version: 0.3.11
 
 Allow-listed emails:
-  marketing@thegstco.com
-  ramchandragada@gmail.com
-  gadaramchandra@gmail.com
   cashaameet@gmail.com
+  gadaramchandra@gmail.com
+  marketing@thegstco.com
+  priyanka@thegstco.com
+  ramchandragada@gmail.com
   thegstco9@gmail.com
 
 If "not available": that Gmail is not on the list — ask IT to add it.

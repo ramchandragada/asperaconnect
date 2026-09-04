@@ -4,7 +4,7 @@
 https://play.google.com/apps/internaltest/4701460117553190758
 
 Version: **0.3.11** (versionCode 20) — Active on Internal testing.  
-Testers: marketing@thegstco.com, ramchandragada@gmail.com, gadaramchandra@gmail.com, cashaameet@gmail.com, thegstco9@gmail.com
+Testers: cashaameet@gmail.com, gadaramchandra@gmail.com, marketing@thegstco.com, priyanka@thegstco.com, ramchandragada@gmail.com, thegstco9@gmail.com
 
 Employees: open link on phone → become a tester → Install from Play → Scan PC QR.
 
