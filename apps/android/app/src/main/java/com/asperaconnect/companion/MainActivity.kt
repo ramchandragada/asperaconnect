@@ -1,7 +1,10 @@
 package com.asperaconnect.companion
 
+import android.app.AlertDialog
 import android.Manifest
 import android.content.BroadcastReceiver
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -15,9 +18,15 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import com.google.zxing.client.android.Intents
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
+import org.json.JSONObject
+import kotlin.concurrent.thread
 
 /** Call-only companion: listen for PC click-to-call. */
 class MainActivity : ComponentActivity() {
@@ -41,14 +50,28 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private val callPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+    private val permissionsLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
             statusText.text = "Ready — you can leave this app. Keep the notification."
             maybeAskBatteryOpt()
         }
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    private val cameraPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) openQrScanner()
+            else {
+                Toast.makeText(this, R.string.camera_denied, Toast.LENGTH_LONG).show()
+                promptPastePairCode()
+            }
+        }
+
+    private val qrLauncher = registerForActivityResult(ScanContract()) { result ->
+        val raw = result.contents ?: return@registerForActivityResult
+        handleQrPayload(raw)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,6 +85,12 @@ class MainActivity : ComponentActivity() {
         linkDetail = findViewById(R.id.linkDetail)
         linkPill = findViewById(R.id.linkPill)
         findViewById<TextView>(R.id.portText).text = "Port ${CompanionService.PORT}"
+        findViewById<TextView>(R.id.versionText).text = try {
+            val p = packageManager.getPackageInfo(packageName, 0)
+            "v${p.versionName}"
+        } catch (_: Exception) {
+            "v0.3.11"
+        }
 
         refreshIp()
         applyLinkStatus(CompanionService.lastStatus, CompanionService.linkedPcName, CompanionService.lastLocalIp)
@@ -71,10 +100,129 @@ class MainActivity : ComponentActivity() {
             startListening()
         }
 
+        findViewById<Button>(R.id.scanQrButton).setOnClickListener {
+            ensureCameraThenScan()
+        }
+
+        findViewById<Button>(R.id.pasteQrButton).setOnClickListener {
+            promptPastePairCode()
+        }
+
         findViewById<Button>(R.id.stopButton).setOnClickListener {
             CompanionService.stop(this)
-            applyLinkStatus(CompanionService.STATUS_STOPPED, null, CompanionService.guessLocalIpv4())
+            applyLinkStatus(CompanionService.STATUS_STOPPED, null, CompanionService.guessLocalIpv4(this))
             statusText.text = getString(R.string.footer)
+        }
+    }
+
+    private fun ensureCameraThenScan() {
+        val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+        if (granted) openQrScanner()
+        else cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+    }
+
+    private fun openQrScanner() {
+        val options = ScanOptions().apply {
+            setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+            setPrompt("Scan the QR on Aspera Connect (PC)")
+            setBeepEnabled(false)
+            setOrientationLocked(true)
+            addExtra(Intents.Scan.SCAN_TYPE, Intents.Scan.MIXED_SCAN)
+        }
+        qrLauncher.launch(options)
+    }
+
+    /** No camera: paste the same text the PC QR encodes (Copy pair code on desktop). */
+    private fun promptPastePairCode() {
+        val input = EditText(this).apply {
+            hint = getString(R.string.paste_qr_hint)
+            setText(readClipboardText())
+            setSelectAllOnFocus(true)
+            minLines = 3
+            setPadding(48, 32, 48, 32)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.paste_qr_title)
+            .setMessage(R.string.paste_qr_sub)
+            .setView(input)
+            .setPositiveButton(R.string.paste_qr_action) { _, _ ->
+                val raw = input.text?.toString()?.trim().orEmpty()
+                if (raw.isEmpty()) {
+                    Toast.makeText(this, R.string.paste_qr_empty, Toast.LENGTH_LONG).show()
+                } else {
+                    handleQrPayload(raw)
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun readClipboardText(): String {
+        return try {
+            val cm = getSystemService(ClipboardManager::class.java) ?: return ""
+            val clip: ClipData = cm.primaryClip ?: return ""
+            if (clip.itemCount < 1) return ""
+            clip.getItemAt(0).coerceToText(this)?.toString()?.trim().orEmpty()
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
+    private fun handleQrPayload(raw: String) {
+        when (val parsed = QrPairing.parseAny(raw)) {
+            is QrPairing.Parsed.Cloud -> {
+                statusText.text = "Connecting over internet to ${parsed.offer.pcName}…"
+                startListening()
+                thread {
+                    RelaySession.joinFromQr(
+                        parsed.offer,
+                        onPaired = { ok, message ->
+                            runOnUiThread {
+                                statusText.text = message
+                                Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
+                                if (ok) {
+                                    applyLinkStatus(
+                                        CompanionService.STATUS_LINKED,
+                                        parsed.offer.pcName,
+                                        CompanionService.guessLocalIpv4(this@MainActivity),
+                                    )
+                                }
+                            }
+                        },
+                        onCommand = { msg, reply ->
+                            val svc = CompanionService.instance
+                            val ack = svc?.handleRelayCommand(msg)
+                                ?: JSONObject().put("type", "error").put("reason", "service_stopped")
+                            reply(ack)
+                        },
+                    )
+                }
+            }
+            is QrPairing.Parsed.Lan -> {
+                startListening()
+                statusText.text = "Pairing with ${parsed.offer.pcName}…"
+                thread {
+                    val phoneIp = CompanionService.guessLocalIpv4(this@MainActivity)
+                    if (phoneIp.isNullOrBlank()) {
+                        runOnUiThread {
+                            statusText.text = "No Wi‑Fi IP — connect phone to the same network as the PC"
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Join the PC’s Wi‑Fi / office LAN first",
+                                Toast.LENGTH_LONG,
+                            ).show()
+                        }
+                        return@thread
+                    }
+                    val result = QrPairing.pairWithPc(parsed.offer, phoneIp)
+                    runOnUiThread {
+                        statusText.text = result.message
+                        Toast.makeText(this@MainActivity, result.message, Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+            null -> Toast.makeText(this, "Not an Aspera PC QR", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -82,10 +230,10 @@ class MainActivity : ComponentActivity() {
         val pin = pinInput.text?.toString().orEmpty()
         CompanionService.start(this, pin)
         refreshIp()
-        val ip = CompanionService.guessLocalIpv4() ?: "…"
+        val ip = CompanionService.guessLocalIpv4(this) ?: "…"
         applyLinkStatus(CompanionService.STATUS_LISTENING, null, ip)
         statusText.text = "Ready — you can leave this app. PC uses IP $ip"
-        ensureCallPermission()
+        ensureCallAndContactsPermissions()
         maybeAskBatteryOpt()
     }
 
@@ -141,7 +289,7 @@ class MainActivity : ComponentActivity() {
             CompanionService.STATUS_FAILED -> {
                 linkBanner.setBackgroundResource(R.drawable.bg_status_bad)
                 linkPill.setBackgroundResource(R.drawable.bg_pill_bad)
-                linkPill.setTextColor(ContextCompat.getColor(this, android.R.color.white))
+                linkPill.setTextColor(ContextCompat.getColor(this, R.color.danger_ink))
                 linkPill.text = "Failed"
                 linkTitle.setTextColor(ContextCompat.getColor(this, R.color.danger))
                 linkTitle.text = getString(R.string.status_failed_title)
@@ -165,17 +313,32 @@ class MainActivity : ComponentActivity() {
 
     private fun refreshIp() {
         val ip = CompanionService.lastLocalIp
-            ?: CompanionService.guessLocalIpv4()
+            ?: CompanionService.guessLocalIpv4(this)
             ?: "Connect to office Wi‑Fi"
         ipText.text = ip
     }
 
-    private fun ensureCallPermission() {
+    private fun ensureCallAndContactsPermissions() {
         if (Build.VERSION.SDK_INT < 23) return
-        val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) ==
+        val needed = mutableListOf<String>()
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) !=
             PackageManager.PERMISSION_GRANTED
-        if (!granted) {
-            callPermissionLauncher.launch(Manifest.permission.CALL_PHONE)
+        ) {
+            needed.add(Manifest.permission.CALL_PHONE)
+        }
+        if (Build.VERSION.SDK_INT >= 26 &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ANSWER_PHONE_CALLS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            needed.add(Manifest.permission.ANSWER_PHONE_CALLS)
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            needed.add(Manifest.permission.READ_CONTACTS)
+        }
+        if (needed.isNotEmpty()) {
+            permissionsLauncher.launch(needed.toTypedArray())
         }
     }
 

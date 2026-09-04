@@ -1,0 +1,25 @@
+Aspera Connect — employee downloads
+===================================
+
+PHONE (Google Play Internal testing)
+  https://play.google.com/apps/internaltest/4701460117553190758
+
+  Phone must be signed into an allow-listed Google account:
+  cashaameet@gmail.com
+  gadaramchandra@gmail.com
+  marketing@thegstco.com
+  priyanka@thegstco.com
+  ramchandragada@gmail.com
+  thegstco9@gmail.com
+
+  Steps on phone:
+  1. Sign in to that Google account
+  2. Open join link → Become a tester
+  3. Install Aspera Connect from Play
+  4. Start for calls → Scan PC QR
+
+PC
+  https://github.com/ramchandragada/asperaconnect/raw/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-Desktop.deb
+
+Pair: PC Show QR → Phone Scan PC QR
+Relay: wss://aspera-connect-relay.onrender.com

@@ -80,6 +80,8 @@ export interface AppConfig {
   deviceNicknames?: Record<string, string>;
   notificationMutedApps?: string[];
   favoriteApps?: string[];
+  relayUrl?: string;
+  relayLinked?: boolean;
 }
 
 export interface UserFacingError {
@@ -164,4 +166,63 @@ export interface CompanionSessionState {
   lastError?: string | null;
 }
 
-export type AppView = "companion" | "settings" | "help";
+export interface QrPairSession {
+  offer: {
+    v: number;
+    t?: string;
+    p?: number;
+    h?: string[];
+    n: string;
+    r?: string;
+    s?: string;
+    k?: string;
+  };
+  qrPayload: string;
+  expiresAtMs: number;
+  active?: boolean;
+  relayUrl?: string;
+}
+
+export interface QrPairedPhone {
+  phoneIp: string;
+  phonePort: number;
+  name: string;
+}
+
+export type AppView = "companion" | "contacts" | "settings" | "help";
+
+export interface PhoneContact {
+  id: string;
+  name: string;
+  phones: string[];
+}
+
+export interface ContactsCache {
+  syncedAt?: string | null;
+  host?: string | null;
+  contacts: PhoneContact[];
+}
+
+export type CallOutcome = "dialed" | "ended" | "failed";
+
+export interface CallHistoryEntry {
+  id: string;
+  name: string;
+  number: string;
+  at: string;
+  outcome: CallOutcome;
+}
+
+export interface CallHistory {
+  entries: CallHistoryEntry[];
+}
+
+export interface FavoriteContact {
+  id: string;
+  name: string;
+  number: string;
+}
+
+export interface FavoritesStore {
+  favorites: FavoriteContact[];
+}

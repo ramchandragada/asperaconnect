@@ -1,0 +1,19 @@
+Play Console → App content → App access
+
+Choose: Access restricted / All or some functionality is restricted
+
+Instructions for Google reviewers:
+
+Aspera Connect is a workplace companion. It pairs with a Linux desktop app
+(Aspera Connect / Aspera Hub) via QR code and places calls on the reviewer’s phone.
+
+To review without a company PC:
+1. Install this Android app from the testing track.
+2. Open the app → allow Phone + Contacts (+ notifications).
+3. Tap “Start for calls”.
+4. The home screen shows waiting / IP status — that is expected.
+5. Full click-to-call requires a paired Linux PC with Aspera Connect showing
+   “Show QR to pair”, then Scan PC QR on the phone.
+
+No login username/password is required for the Android app itself.
+Support: marketing@thegstco.com

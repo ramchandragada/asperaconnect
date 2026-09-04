@@ -149,10 +149,20 @@ pub struct AppConfig {
     /// Favorite packages for one-click app windows.
     #[serde(default)]
     pub favorite_apps: Vec<String>,
+    /// Cloud relay WebSocket URL for cross-network QR pairing.
+    #[serde(default = "default_relay_url")]
+    pub relay_url: String,
+    /// When true, last successful link used the cloud relay (not LAN IP).
+    #[serde(default)]
+    pub relay_linked: bool,
 }
 
 fn default_true() -> bool {
     true
+}
+
+fn default_relay_url() -> String {
+    crate::relay_client::DEFAULT_RELAY_URL.to_string()
 }
 
 impl Default for AppConfig {
@@ -177,6 +187,8 @@ impl Default for AppConfig {
             device_nicknames: HashMap::new(),
             notification_muted_apps: vec![],
             favorite_apps: default_favorite_packages(),
+            relay_url: default_relay_url(),
+            relay_linked: false,
         }
     }
 }

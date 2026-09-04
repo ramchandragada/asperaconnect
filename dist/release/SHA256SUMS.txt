@@ -1,0 +1,1 @@
+8b0a328af77ee0774ac5b56c3cff4c4e99c4ec6e6a0c5bda52e6536fe2e3fec9  dist/release/AsperaConnect-Phone.apk

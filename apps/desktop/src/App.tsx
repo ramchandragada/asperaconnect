@@ -1,18 +1,28 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { HelpCircle, Settings, Smartphone } from "lucide-react";
+import { BookUser, HelpCircle, Settings, Smartphone, Star } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { api } from "./lib/api";
 import { locales, t } from "./lib/i18n";
 import type {
   AppConfig,
   AppView,
+  CallHistory,
   CompanionDevice,
   CompanionSessionState,
+  ContactsCache,
+  FavoritesStore,
+  QrPairSession,
   UserFacingError,
 } from "./lib/types";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { FirstRunWizard } from "./components/FirstRunWizard";
+import asperaLogo from "./assets/aspera-logo.png";
 import "./styles/app.css";
+
+/** Phone install — Google Play Internal testing join link. */
+const PHONE_INSTALL_URL =
+  "https://play.google.com/apps/internaltest/4701460117553190758";
 
 export default function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -25,12 +35,47 @@ export default function App() {
   const [companionName, setCompanionName] = useState("My Phone");
   const [companionPin, setCompanionPin] = useState("");
   const [discoveredCompanions, setDiscoveredCompanions] = useState<CompanionDevice[]>([]);
+  const [qrSession, setQrSession] = useState<QrPairSession | null>(null);
+  const [showPhoneInstallQr, setShowPhoneInstallQr] = useState(false);
+  const [contactsCache, setContactsCache] = useState<ContactsCache>({ contacts: [] });
+  const [callHistory, setCallHistory] = useState<CallHistory>({ entries: [] });
+  const [favorites, setFavorites] = useState<FavoritesStore>({ favorites: [] });
+  const [contactQuery, setContactQuery] = useState("");
+  const [activeCall, setActiveCall] = useState<{
+    name: string;
+    number: string;
+    phase: "dialing" | "sent" | "ended" | "failed";
+    detail?: string;
+  } | null>(null);
 
   const locale = config?.locale ?? "en";
 
+  const favoriteIds = useMemo(
+    () => new Set(favorites.favorites.map((f) => f.id)),
+    [favorites.favorites],
+  );
+
+  const filteredContacts = useMemo(() => {
+    const q = contactQuery.trim().toLowerCase();
+    const list = contactsCache.contacts ?? [];
+    if (!q) return list;
+    return list.filter((c) => {
+      if (c.name.toLowerCase().includes(q)) return true;
+      return c.phones.some((p) => p.toLowerCase().includes(q));
+    });
+  }, [contactsCache.contacts, contactQuery]);
+
   const bootstrap = useCallback(async () => {
-    const cfg = await api.getConfig();
+    const [cfg, cached, history, favs] = await Promise.all([
+      api.getConfig(),
+      api.loadCachedContacts(),
+      api.loadCallHistory(),
+      api.loadFavorites(),
+    ]);
     setConfig(cfg);
+    setContactsCache(cached ?? { contacts: [] });
+    setCallHistory(history ?? { entries: [] });
+    setFavorites(favs ?? { favorites: [] });
     setCompanionPin(cfg.companionPin ?? "");
     if (cfg.companionHost) setCompanionHost(cfg.companionHost);
     if (cfg.companionName) setCompanionName(cfg.companionName);
@@ -57,6 +102,89 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    let unlistenPaired: (() => void) | undefined;
+    let unlistenFail: (() => void) | undefined;
+    void listen<CompanionSessionState>("aspera://cloud-paired", (ev) => {
+      setQrSession(null);
+      setCompanion(ev.payload);
+      setStatusMsg("Phone linked over internet — syncing contacts…");
+      void (async () => {
+        const sync = await api.syncPhoneContacts(null);
+        if (sync.ok) {
+          setContactsCache(sync.data ?? { contacts: [] });
+          const n = sync.data?.contacts?.length ?? 0;
+          setStatusMsg(`Synced ${n} contact${n === 1 ? "" : "s"} from phone`);
+        }
+      })();
+    }).then((fn) => {
+      unlistenPaired = fn;
+    });
+    void listen<string>("aspera://cloud-pair-failed", (ev) => {
+      setError({
+        code: "relay",
+        title: "QR pairing failed",
+        message: ev.payload || "Could not pair over internet",
+        hint: "Check internet on PC and phone. Deploy apps/relay if using your own server.",
+      });
+      setQrSession(null);
+    }).then((fn) => {
+      unlistenFail = fn;
+    });
+    return () => {
+      unlistenPaired?.();
+      unlistenFail?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void listen<{ phoneIp: string; phonePort: number; name: string }>("aspera://qr-paired", (ev) => {
+      void (async () => {
+        const phone = ev.payload;
+        setCompanionHost(phone.phoneIp);
+        if (phone.name) setCompanionName(phone.name);
+        setQrSession(null);
+        await api.stopQrPairing();
+        setBusy(true);
+        setError(null);
+        setStatusMsg(`Phone scanned QR — connecting to ${phone.phoneIp}…`);
+        const cfg = await api.getConfig();
+        await api.saveConfig({ ...cfg, companionHost: phone.phoneIp, companionName: phone.name || cfg.companionName });
+        setConfig(await api.getConfig());
+        const res = await api.companionHello(
+          phone.phoneIp,
+          phone.name || "My Phone",
+          cfg.companionPin || undefined,
+        );
+        setBusy(false);
+        if (!res.ok) {
+          setCompanion({
+            connected: false,
+            device: null,
+            mirroring: false,
+            lastError: res.error?.message ?? "Connection failed after QR pair",
+          });
+          return setError(res.error ?? null);
+        }
+        setCompanion(res.data ?? null);
+        setStatusMsg("Connected — syncing contacts…");
+        const sync = await api.syncPhoneContacts(phone.phoneIp);
+        if (sync.ok) {
+          setContactsCache(sync.data ?? { contacts: [] });
+          const n = sync.data?.contacts?.length ?? 0;
+          setStatusMsg(`Synced ${n} contact${n === 1 ? "" : "s"} from phone`);
+        }
+      })();
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => {
+      unlisten?.();
+      void api.stopQrPairing();
+    };
+  }, []);
+
+  useEffect(() => {
     if (view !== "companion") return;
     void api.getCompanionState().then(setCompanion);
     const id = window.setInterval(() => {
@@ -65,53 +193,74 @@ export default function App() {
     return () => window.clearInterval(id);
   }, [view]);
 
+  const callNumber = useCallback(async (number: string, name?: string) => {
+    const label = name?.trim() || number;
+    setBusy(true);
+    setError(null);
+    setActiveCall({ name: label, number, phase: "dialing" });
+    setStatusMsg(null);
+    const res = await api.placeCall({ number, serial: null, direct: true });
+    setBusy(false);
+    if (!res.ok) {
+      setActiveCall({
+        name: label,
+        number,
+        phase: "failed",
+        detail: res.error?.message ?? "Call failed",
+      });
+      setError(res.error ?? null);
+      const hist = await api.recordCallHistory(label, number, "failed");
+      if (hist.ok && hist.data) setCallHistory(hist.data);
+      return;
+    }
+    setActiveCall({
+      name: label,
+      number,
+      phase: "sent",
+      detail: res.data ?? "Ringing on your phone",
+    });
+    setStatusMsg(null);
+    const hist = await api.recordCallHistory(label, number, "dialed");
+    if (hist.ok && hist.data) setCallHistory(hist.data);
+  }, []);
+
   useEffect(() => {
     let unlistenCall: (() => void) | undefined;
     let unlistenClip: (() => void) | undefined;
     void listen<string>("aspera://call", (ev) => {
       setView("companion");
-      void (async () => {
-        const res = await api.placeCall({
-          number: ev.payload,
-          serial: null,
-          direct: true,
-        });
-        if (!res.ok) setError(res.error ?? null);
-        else setStatusMsg(res.data ?? `Calling ${ev.payload}`);
-      })();
+      void callNumber(ev.payload);
     }).then((fn) => {
       unlistenCall = fn;
     });
     void listen("tray://call-clipboard", () => {
       void (async () => {
-        try {
-          const text = await navigator.clipboard.readText();
-          const parsed = await api.parseCallUri(text.trim());
-          if (!parsed.ok || !parsed.data) {
-            setError(parsed.error ?? {
+        const clip = await api.readSystemClipboard();
+        if (!clip.ok || !clip.data?.trim()) {
+          setError(
+            clip.error ?? {
               code: "clipboard",
               title: "No number",
               message: "Copy a phone number first, then use Call from clipboard.",
               hint: null,
-            });
-            return;
-          }
-          setView("companion");
-          const res = await api.placeCall({
-            number: parsed.data,
-            serial: null,
-            direct: true,
-          });
-          if (!res.ok) setError(res.error ?? null);
-          else setStatusMsg(res.data ?? `Calling ${parsed.data}`);
-        } catch {
-          setError({
-            code: "clipboard",
-            title: "Clipboard read failed",
-            message: "Allow clipboard access or paste the number in Hub instead.",
-            hint: null,
-          });
+            },
+          );
+          return;
         }
+        const parsed = await api.parseCallUri(clip.data.trim());
+        if (!parsed.ok || !parsed.data) {
+          setError(
+            parsed.error ?? {
+              code: "clipboard",
+              title: "No number",
+              message: "Clipboard does not contain a dialable phone number.",
+              hint: null,
+            },
+          );
+          return;
+        }
+        setView("companion");
+        await callNumber(parsed.data);
       })();
     }).then((fn) => {
       unlistenClip = fn;
@@ -119,20 +268,129 @@ export default function App() {
     void api.takePendingCall().then((n) => {
       if (!n) return;
       setView("companion");
-      void api.placeCall({ number: n, serial: null, direct: true }).then((res) => {
-        if (!res.ok) setError(res.error ?? null);
-        else setStatusMsg(res.data ?? `Calling ${n}`);
-      });
+      void callNumber(n);
     });
     return () => {
       unlistenCall?.();
       unlistenClip?.();
     };
-  }, []);
+  }, [callNumber]);
 
   async function persistConfig(next: AppConfig) {
     await api.saveConfig(next);
     setConfig(next);
+  }
+
+  async function syncContacts(host?: string) {
+    setBusy(true);
+    setError(null);
+    const res = await api.syncPhoneContacts(host ?? (companionHost.trim() || null));
+    setBusy(false);
+    if (!res.ok) return setError(res.error ?? null);
+    setContactsCache(res.data ?? { contacts: [] });
+    const n = res.data?.contacts?.length ?? 0;
+    setStatusMsg(`Synced ${n} contact${n === 1 ? "" : "s"} from phone`);
+  }
+
+  async function discoverPhone(autoFill = true, manageBusy = true) {
+    if (manageBusy) setBusy(true);
+    const res = await api.discoverCompanions();
+    if (manageBusy) setBusy(false);
+    if (!res.ok) return { ok: false as const, error: res.error, devices: [] as CompanionDevice[] };
+    const devices = res.data ?? [];
+    setDiscoveredCompanions(devices);
+    if (autoFill && devices[0]) {
+      setCompanionHost(devices[0].host);
+      if (devices[0].name) setCompanionName(devices[0].name);
+    }
+    return { ok: true as const, devices };
+  }
+
+  async function connectCompanion(host: string, tryDiscoverOnFailure = true) {
+    setBusy(true);
+    setError(null);
+    await persistConfig({ ...config!, companionHost: host });
+    let res = await api.companionHello(host, companionName, companionPin || undefined);
+    let discovered: CompanionDevice[] = [];
+    if (!res.ok && tryDiscoverOnFailure) {
+      const discovery = await discoverPhone(true, false);
+      discovered = discovery.devices;
+      if (discovery.ok && discovered.length > 0) {
+        const foundHost = discovered[0].host;
+        if (foundHost !== host) {
+          setCompanionHost(foundHost);
+          await persistConfig({ ...config!, companionHost: foundHost });
+          res = await api.companionHello(foundHost, companionName, companionPin || undefined);
+          host = foundHost;
+        } else {
+          setStatusMsg("Phone found on network — retrying connect…");
+          res = await api.companionHello(foundHost, companionName, companionPin || undefined);
+        }
+      }
+    }
+    setBusy(false);
+    if (!res.ok) {
+      const baseMsg = res.error?.message ?? "Connection failed";
+      const hint =
+        discoveryHintForError(baseMsg) ??
+        (discovered.length === 0
+          ? " Try Find phone on network or match the IP shown on the phone app."
+          : null);
+      setCompanion({
+        connected: false,
+        device: null,
+        mirroring: false,
+        lastError: hint ? `${baseMsg}${hint}` : baseMsg,
+      });
+      return setError(res.error ?? null);
+    }
+    setCompanion(res.data ?? null);
+    setConfig(await api.getConfig());
+    setStatusMsg("Connected — syncing contacts…");
+    await syncContacts(host);
+  }
+
+  async function hangUp() {
+    setBusy(true);
+    setError(null);
+    const res = await api.companionEndCall(companionHost.trim() || null);
+    setBusy(false);
+    if (!res.ok) {
+      if (activeCall) {
+        setActiveCall({
+          ...activeCall,
+          phase: "failed",
+          detail: res.error?.message ?? "Hang up failed",
+        });
+      }
+      setError(res.error ?? null);
+      return;
+    }
+    const name = activeCall?.name ?? "Call";
+    const number = activeCall?.number ?? "";
+    setActiveCall({
+      name,
+      number,
+      phase: "ended",
+      detail: res.data ?? "Call ended",
+    });
+    if (number) {
+      const hist = await api.recordCallHistory(name, number, "ended");
+      if (hist.ok && hist.data) setCallHistory(hist.data);
+    }
+    window.setTimeout(() => setActiveCall(null), 2500);
+  }
+
+  async function toggleFavorite(id: string, name: string, number: string) {
+    const res = await api.toggleFavorite(id, name, number);
+    if (!res.ok) return setError(res.error ?? null);
+    setFavorites(res.data ?? { favorites: [] });
+  }
+
+  async function clearHistory() {
+    const res = await api.clearCallHistory();
+    if (!res.ok) return setError(res.error ?? null);
+    setCallHistory(res.data ?? { entries: [] });
   }
 
   if (!config) {
@@ -154,23 +412,25 @@ export default function App() {
     );
   }
 
+  const heading =
+    view === "companion"
+      ? "Phone calls"
+      : view === "contacts"
+        ? "Contacts"
+        : view === "settings"
+          ? t(locale, "settings")
+          : t(locale, "help");
+
+  const savedHost = config.companionHost?.trim() ?? "";
+  const currentHost = companionHost.trim();
+  const ipChanged = savedHost.length > 0 && currentHost.length > 0 && savedHost !== currentHost;
+
   return (
-    <div className="app-shell" style={{ display: "grid", gridTemplateColumns: "220px 1fr", height: "100%" }}>
-      <aside
-        style={{
-          borderRight: "1px solid var(--line)",
-          padding: "1.25rem 1rem",
-          display: "flex",
-          flexDirection: "column",
-          gap: "0.35rem",
-          background: "rgba(0,0,0,0.18)",
-        }}
-      >
-        <div style={{ padding: "0.35rem 0.85rem 1rem" }}>
-          <div className="brand" style={{ fontSize: "1.35rem" }}>
-            {t(locale, "brand")}
-          </div>
-          <div style={{ color: "var(--muted)", fontSize: "0.85rem" }}>Click-to-call</div>
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="brand-block">
+          <img src={asperaLogo} alt="Aspera" className="brand-logo" />
+          <div className="brand-sub">Connect · Click-to-call</div>
         </div>
         <Nav
           icon={<Smartphone size={18} />}
@@ -180,9 +440,22 @@ export default function App() {
           badge={
             companion?.connected
               ? { text: "Linked", tone: "ok" }
-              : config.companionHost
-                ? { text: "Saved", tone: "warn" }
-                : { text: "Off", tone: "bad" }
+              : ipChanged
+                ? { text: "New IP", tone: "warn" }
+                : config.companionHost
+                  ? { text: "Saved", tone: "warn" }
+                  : { text: "Off", tone: "bad" }
+          }
+        />
+        <Nav
+          icon={<BookUser size={18} />}
+          label="Contacts"
+          active={view === "contacts"}
+          onClick={() => setView("contacts")}
+          badge={
+            (contactsCache.contacts?.length ?? 0) > 0
+              ? { text: String(contactsCache.contacts.length), tone: "ok" }
+              : undefined
           }
         />
         <Nav
@@ -205,10 +478,12 @@ export default function App() {
 
       <main style={{ padding: "1.25rem 1.5rem", overflow: "auto", minWidth: 0 }}>
         <header style={{ marginBottom: "1rem" }}>
-          <div className="brand" style={{ fontSize: "1.8rem" }}>
-            {view === "companion" ? "Phone calls" : view === "settings" ? t(locale, "settings") : t(locale, "help")}
+          <div className="page-title">{heading}</div>
+          <div style={{ color: "var(--muted)" }}>
+            {view === "contacts"
+              ? "Search contacts, dial favorites, or redial from Recents."
+              : "PC → phone dialing. Nothing else."}
           </div>
-          <div style={{ color: "var(--muted)" }}>PC → phone dialing. Nothing else.</div>
         </header>
 
         {error ? (
@@ -218,10 +493,59 @@ export default function App() {
         ) : null}
         {statusMsg ? (
           <div
-            className="panel fade-in"
-            style={{ padding: "0.85rem 1rem", marginBottom: "1rem", color: "var(--accent)" }}
+            className="panel fade-in status-toast"
+            style={{ padding: "0.85rem 1rem", marginBottom: "1rem" }}
           >
             {statusMsg}
+          </div>
+        ) : null}
+
+        {activeCall ? (
+          <div
+            className={`call-banner call-banner-${activeCall.phase} fade-in`}
+            role="status"
+            aria-live="polite"
+            style={{ marginBottom: "1rem", maxWidth: 960 }}
+          >
+            <div className="call-banner-pulse" aria-hidden />
+            <div className="call-banner-body">
+              <div className="call-banner-title">
+                {activeCall.phase === "dialing"
+                  ? "Calling…"
+                  : activeCall.phase === "sent"
+                    ? "On your phone"
+                    : activeCall.phase === "ended"
+                      ? "Call ended"
+                      : "Call failed"}
+              </div>
+              <div className="call-banner-detail">
+                <strong>{activeCall.name}</strong>
+                {activeCall.name !== activeCall.number && activeCall.number ? (
+                  <>
+                    {" "}
+                    · <code>{activeCall.number}</code>
+                  </>
+                ) : null}
+                {activeCall.detail ? (
+                  <>
+                    <br />
+                    <span>{activeCall.detail}</span>
+                  </>
+                ) : null}
+              </div>
+            </div>
+            <div className="call-banner-actions">
+              {activeCall.phase === "dialing" || activeCall.phase === "sent" ? (
+                <button className="btn btn-danger" disabled={busy} onClick={() => void hangUp()}>
+                  Hang up
+                </button>
+              ) : null}
+              {activeCall.phase !== "dialing" ? (
+                <button className="btn btn-ghost" onClick={() => setActiveCall(null)}>
+                  Dismiss
+                </button>
+              ) : null}
+            </div>
           </div>
         ) : null}
 
@@ -229,55 +553,198 @@ export default function App() {
           <div className="panel fade-in" style={{ padding: "1.25rem", display: "grid", gap: "1rem", maxWidth: 520 }}>
             <EasyLinkStatus
               connected={!!companion?.connected}
-              host={companion?.device?.host ?? companionHost}
-              savedHost={config.companionHost ?? null}
+              currentHost={currentHost}
+              savedHost={savedHost || null}
               lastError={companion?.lastError ?? null}
             />
 
             <p style={{ color: "var(--muted)", margin: 0, lineHeight: 1.45 }}>
-              On the phone open Aspera Connect → <strong>Start for calls</strong>. Enter the phone IP
-              below, then connect. Hub / Zoho click-to-call dials every time.
+              Like WhatsApp: tap <strong>Show QR to pair</strong>, phone taps <strong>Scan PC QR</strong>
+              (or <strong>Paste pair code</strong> if the camera is unavailable).
+              Works across different networks (both need internet). Secure one-time code in the QR.
             </p>
 
+            {showPhoneInstallQr ? (
+              <div
+                className="easy-status easy-status-ok"
+                style={{ display: "grid", gap: 12, justifyItems: "center", textAlign: "center" }}
+              >
+                <div className="easy-status-title">Install phone app (Play Store)</div>
+                <QRCodeSVG value={PHONE_INSTALL_URL} size={220} level="M" includeMargin />
+                <div className="easy-status-detail">
+                  Phone scans this QR → become a tester → <strong>Install from Play</strong>.
+                  <br />
+                  No USB. No Developer Options. No APK fight.
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                  <button
+                    className="btn btn-primary"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(PHONE_INSTALL_URL);
+                        setStatusMsg("Install link copied — open it on the phone browser");
+                      } catch {
+                        setError({
+                          code: "clipboard",
+                          title: "Copy failed",
+                          message: PHONE_INSTALL_URL,
+                          hint: null,
+                        });
+                      }
+                    }}
+                  >
+                    Copy install link
+                  </button>
+                  <button className="btn" onClick={() => setShowPhoneInstallQr(false)}>
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {qrSession ? (
+              <div
+                className="easy-status easy-status-ok"
+                style={{ display: "grid", gap: 12, justifyItems: "center", textAlign: "center" }}
+              >
+                <div className="easy-status-title">Scan with phone (internet)</div>
+                <QRCodeSVG value={qrSession.qrPayload} size={220} level="M" includeMargin />
+                <div className="easy-status-detail">
+                  On the phone: <strong>Scan PC QR</strong>, or if no camera:
+                  <strong> Paste pair code</strong>.
+                  <br />
+                  Works even if phone Wi‑Fi ≠ PC LAN.
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                  <button
+                    className="btn btn-primary"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(qrSession.qrPayload);
+                        setStatusMsg("Pair code copied — send to phone, then Paste pair code");
+                      } catch {
+                        setError({
+                          code: "clipboard",
+                          title: "Copy failed",
+                          message: "Could not copy — expand Show text code and copy manually.",
+                          hint: null,
+                        });
+                      }
+                    }}
+                  >
+                    Copy pair code
+                  </button>
+                  <button
+                    className="btn"
+                    onClick={async () => {
+                      await api.stopQrPairing();
+                      setQrSession(null);
+                    }}
+                  >
+                    Cancel QR
+                  </button>
+                </div>
+                <details style={{ width: "100%", textAlign: "left", fontSize: "0.8rem", color: "var(--muted)" }}>
+                  <summary style={{ cursor: "pointer" }}>Show text code (no camera)</summary>
+                  <code
+                    style={{
+                      display: "block",
+                      marginTop: 8,
+                      padding: 8,
+                      wordBreak: "break-all",
+                      background: "var(--bg-elevated, rgba(0,0,0,0.04))",
+                      borderRadius: 6,
+                      userSelect: "all",
+                    }}
+                  >
+                    {qrSession.qrPayload}
+                  </code>
+                </details>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: 8 }}>
+                <button
+                  className="btn btn-primary"
+                  style={{ minHeight: 52, fontSize: "1.05rem" }}
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    setError(null);
+                    setShowPhoneInstallQr(false);
+                    const res = await api.startQrPairing();
+                    setBusy(false);
+                    if (!res.ok) return setError(res.error ?? null);
+                    setQrSession(res.data ?? null);
+                    setStatusMsg("Show this QR to the phone — works across networks");
+                  }}
+                >
+                  Show QR to pair
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => {
+                    setQrSession(null);
+                    setShowPhoneInstallQr(true);
+                    setStatusMsg("Phone scans this QR to download the app — no USB");
+                  }}
+                >
+                  Get phone app (Play)
+                </button>
+              </div>
+            )}
+
             <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ color: "var(--muted)", fontSize: "0.85rem", fontWeight: 600 }}>Phone IP</span>
+              <span style={{ color: "var(--muted)", fontSize: "0.85rem", fontWeight: 600 }}>
+                Or enter Phone IP manually
+              </span>
               <input
                 className="field"
                 value={companionHost}
-                onChange={(e) => setCompanionHost(e.target.value)}
+                onChange={(e) => {
+                  setCompanionHost(e.target.value);
+                  if (companion?.lastError) {
+                    setCompanion((prev) =>
+                      prev ? { ...prev, lastError: null } : prev,
+                    );
+                  }
+                }}
                 placeholder="e.g. 192.168.1.9"
               />
+              {ipChanged ? (
+                <span style={{ color: "var(--accent)", fontSize: "0.85rem" }}>
+                  IP changed from <code>{savedHost}</code> — tap <strong>Connect for phone calls</strong>{" "}
+                  to use <code>{currentHost}</code>.
+                </span>
+              ) : null}
             </label>
 
-            <button
-              className="btn btn-primary"
-              style={{ minHeight: 52, fontSize: "1.05rem" }}
-              disabled={busy || !companionHost.trim()}
-              onClick={async () => {
-                setBusy(true);
-                setError(null);
-                const res = await api.companionHello(
-                  companionHost,
-                  companionName,
-                  companionPin || undefined,
-                );
-                setBusy(false);
-                if (!res.ok) {
-                  setCompanion({
-                    connected: false,
-                    device: null,
-                    mirroring: false,
-                    lastError: res.error?.message ?? "Connection failed",
-                  });
-                  return setError(res.error ?? null);
-                }
-                setCompanion(res.data ?? null);
-                setConfig(await api.getConfig());
-                setStatusMsg("Connected — Hub click-to-call can use this phone");
-              }}
-            >
-              Connect for phone calls
-            </button>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                className="btn btn-primary"
+                style={{ flex: 1, minWidth: 200, minHeight: 52, fontSize: "1.05rem" }}
+                disabled={busy || !currentHost}
+                onClick={() => void connectCompanion(currentHost)}
+              >
+                Connect for phone calls
+              </button>
+              <button
+                className="btn"
+                style={{ minHeight: 52 }}
+                disabled={busy}
+                onClick={async () => {
+                  const result = await discoverPhone(true);
+                  if (!result.ok) return setError(result.error ?? null);
+                  setStatusMsg(
+                    result.devices.length
+                      ? `Found ${result.devices.length} phone(s) — IP filled in`
+                      : "No phone found — tap Start for calls on the phone first",
+                  );
+                }}
+              >
+                Find phone on network
+              </button>
+            </div>
 
             <button
               className="btn"
@@ -312,20 +779,16 @@ export default function App() {
                   <button
                     className="btn"
                     onClick={async () => {
-                      setBusy(true);
-                      const res = await api.discoverCompanions();
-                      setBusy(false);
-                      if (!res.ok) return setError(res.error ?? null);
-                      setDiscoveredCompanions(res.data ?? []);
-                      if (res.data?.[0]) setCompanionHost(res.data[0].host);
+                      const result = await discoverPhone(true);
+                      if (!result.ok) return setError(result.error ?? null);
                       setStatusMsg(
-                        res.data?.length
-                          ? `Found ${res.data.length} phone(s)`
+                        result.devices.length
+                          ? `Found ${result.devices.length} phone(s)`
                           : "No phone found — tap Start for calls on the phone first",
                       );
                     }}
                   >
-                    Find phone on network
+                    Refresh discovery
                   </button>
                   <button
                     className="btn"
@@ -356,6 +819,149 @@ export default function App() {
           </div>
         )}
 
+        {view === "contacts" && (
+          <div className="contacts-layout fade-in">
+            <div className="panel contacts-main" style={{ padding: "1.25rem", display: "grid", gap: "0.85rem" }}>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <input
+                  className="field"
+                  style={{ flex: 1, minWidth: 180 }}
+                  value={contactQuery}
+                  onChange={(e) => setContactQuery(e.target.value)}
+                  placeholder="Search name or number"
+                  disabled={activeCall?.phase === "dialing"}
+                />
+                <button
+                  className="btn btn-primary"
+                  disabled={busy || !companionHost.trim() || activeCall?.phase === "dialing"}
+                  onClick={() => void syncContacts()}
+                >
+                  Sync from phone
+                </button>
+              </div>
+              <p style={{ color: "var(--muted)", margin: 0, fontSize: "0.85rem" }}>
+                {(contactsCache.contacts?.length ?? 0) === 0
+                  ? "No contacts yet — Connect for phone calls (auto-syncs) or tap Sync from phone."
+                  : `${contactsCache.contacts.length} contact${contactsCache.contacts.length === 1 ? "" : "s"} cached${
+                      contactsCache.syncedAt
+                        ? ` · last sync ${new Date(contactsCache.syncedAt).toLocaleString()}`
+                        : ""
+                    }`}
+              </p>
+              <div className="contacts-list">
+                {filteredContacts.map((c) => {
+                  const primary = c.phones[0] ?? "";
+                  const isThis =
+                    activeCall &&
+                    (activeCall.number === primary || activeCall.name === c.name);
+                  const dialingThis = isThis && activeCall.phase === "dialing";
+                  const starred = favoriteIds.has(c.id);
+                  return (
+                    <div
+                      key={c.id}
+                      className={dialingThis ? "contact-row contact-row-calling" : "contact-row"}
+                    >
+                      <button
+                        type="button"
+                        className={`star-btn${starred ? " is-on" : ""}`}
+                        aria-label={starred ? "Remove favorite" : "Add favorite"}
+                        title={starred ? "Remove favorite" : "Add favorite"}
+                        disabled={!primary}
+                        onClick={() => void toggleFavorite(c.id, c.name, primary)}
+                      >
+                        <Star size={16} fill={starred ? "currentColor" : "none"} />
+                      </button>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600 }}>{c.name}</div>
+                        <div style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+                          {c.phones.join(" · ")}
+                        </div>
+                      </div>
+                      <button
+                        className="btn btn-primary"
+                        disabled={busy || !primary || activeCall?.phase === "dialing"}
+                        onClick={() => void callNumber(primary, c.name)}
+                      >
+                        {dialingThis ? "Calling…" : "Call"}
+                      </button>
+                    </div>
+                  );
+                })}
+                {filteredContacts.length === 0 && (contactsCache.contacts?.length ?? 0) > 0 ? (
+                  <p style={{ color: "var(--muted)" }}>No matches for “{contactQuery}”.</p>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="contacts-side">
+              <section className="panel side-panel">
+                <div className="side-panel-head">
+                  <h3>Favorites</h3>
+                </div>
+                {favorites.favorites.length === 0 ? (
+                  <p className="side-empty">Star contacts in the list to pin them here.</p>
+                ) : (
+                  <div className="side-list">
+                    {favorites.favorites.map((f) => (
+                      <div key={f.id} className="side-row">
+                        <div className="side-row-text">
+                          <strong>{f.name}</strong>
+                          <span>{f.number}</span>
+                        </div>
+                        <button
+                          className="btn btn-primary btn-compact"
+                          disabled={busy || activeCall?.phase === "dialing"}
+                          onClick={() => void callNumber(f.number, f.name)}
+                        >
+                          Call
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section className="panel side-panel">
+                <div className="side-panel-head">
+                  <h3>Recents</h3>
+                  {callHistory.entries.length > 0 ? (
+                    <button className="btn btn-ghost btn-compact" onClick={() => void clearHistory()}>
+                      Clear
+                    </button>
+                  ) : null}
+                </div>
+                {callHistory.entries.length === 0 ? (
+                  <p className="side-empty">Calls you place from Aspera appear here.</p>
+                ) : (
+                  <div className="side-list">
+                    {callHistory.entries.slice(0, 30).map((e) => (
+                      <div key={e.id} className="side-row">
+                        <div className="side-row-text">
+                          <strong>{e.name || e.number}</strong>
+                          <span>
+                            {e.number}
+                            {" · "}
+                            {formatRecentTime(e.at)}
+                            {" · "}
+                            {e.outcome}
+                          </span>
+                        </div>
+                        <button
+                          className="btn btn-compact"
+                          disabled={busy || !e.number || activeCall?.phase === "dialing"}
+                          onClick={() => void callNumber(e.number, e.name)}
+                        >
+                          Call
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
+          </div>
+        )}
+
         {view === "settings" && (
           <div className="panel fade-in" style={{ padding: "1.25rem", display: "grid", gap: "0.9rem", maxWidth: 420 }}>
             <label>
@@ -374,29 +980,78 @@ export default function App() {
               </select>
             </label>
             <p style={{ color: "var(--muted)", margin: 0, fontSize: "0.9rem" }}>
-              Calling uses Easy mode only. No ADB, scrcpy, or KDE Connect required.
+              Calling uses Easy mode only. Contacts sync over the same link.
             </p>
           </div>
         )}
 
         {view === "help" && (
           <div className="panel fade-in" style={{ padding: "1.25rem", lineHeight: 1.55, maxWidth: 640 }}>
-            <h3 style={{ marginTop: 0 }}>Click-to-call</h3>
+            <h3 style={{ marginTop: 0 }}>Quick start</h3>
             <ol>
-              <li>Phone: open Aspera Connect → <strong>Start for calls</strong> (keep the notification).</li>
-              <li>PC: enter the phone IP → <strong>Connect for phone calls</strong>.</li>
-              <li>Optional: register <code>tel:</code> so Zoho / browser links dial here.</li>
-              <li>Click a number in Hub / Zoho — the phone dials.</li>
+              <li>
+                Phone: open Aspera Connect → <strong>Start for calls</strong> (allow Phone + Answer calls +
+                Contacts).
+              </li>
+              <li>
+                PC: enter the phone IP → <strong>Connect for phone calls</strong> (auto-syncs contacts).
+              </li>
+              <li>
+                Open <strong>Contacts</strong>, search, tap <strong>Call</strong> — or use Favorites /
+                Recents.
+              </li>
+              <li>
+                Use <strong>Hang up</strong> on the banner to end the call from the PC.
+              </li>
+              <li>
+                Optional: register <code>tel:</code> for Zoho / browser links (app must stay connected).
+              </li>
             </ol>
-            <p style={{ color: "var(--muted)" }}>
-              Same office network is enough (phone Wi‑Fi + PC wired is fine). On OnePlus, set battery to
-              Unrestricted for Aspera Connect.
+            <h3>Common problems</h3>
+            <ul style={{ paddingLeft: "1.2rem", margin: 0 }}>
+              <li>
+                <strong>Can&apos;t connect</strong> — same Wi‑Fi band on PC and phone (2.4 vs 5 GHz); phone
+                shows <strong>Start for calls</strong>; try <strong>Find phone on network</strong>.
+              </li>
+              <li>
+                <strong>Clipboard call fails</strong> — Linux Mint: <code>sudo apt install xclip</code>.
+                KDE: <code>sudo apt install wl-clipboard</code>.
+              </li>
+              <li>
+                <strong>Phone stops listening</strong> — battery optimization off for Aspera Connect; reopen
+                app and tap Start for calls.
+              </li>
+              <li>
+                <strong>No contacts</strong> — allow Contacts on phone, then Connect or Sync from phone.
+              </li>
+              <li>
+                <strong>Zoho link does nothing</strong> — register tel handler once; keep PC app open and
+                Linked.
+              </li>
+            </ul>
+            <p style={{ color: "var(--muted)", marginBottom: 0 }}>
+              Full troubleshooting list ships with the installer as <code>TROUBLESHOOTING.txt</code>.
             </p>
           </div>
         )}
       </main>
     </div>
   );
+}
+
+function formatRecentTime(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
 }
 
 function Nav({
@@ -417,7 +1072,7 @@ function Nav({
       {icon}
       <span style={{ flex: 1 }}>{label}</span>
       {badge ? (
-        <span className={`nav-badge nav-badge-${badge.tone}`} aria-label={`Phone calls ${badge.text}`}>
+        <span className={`nav-badge nav-badge-${badge.tone}`} aria-label={`${label} ${badge.text}`}>
           {badge.text}
         </span>
       ) : null}
@@ -427,12 +1082,12 @@ function Nav({
 
 function EasyLinkStatus({
   connected,
-  host,
+  currentHost,
   savedHost,
   lastError,
 }: {
   connected: boolean;
-  host: string;
+  currentHost: string;
   savedHost: string | null;
   lastError: string | null;
 }) {
@@ -441,25 +1096,47 @@ function EasyLinkStatus({
       <div className="easy-status easy-status-ok" role="status">
         <div className="easy-status-title">Connected</div>
         <div className="easy-status-detail">
-          Phone ready at <code>{host}</code>. Hub click-to-call works.
+          Phone ready at <code>{currentHost}</code>. Hub click-to-call works.
         </div>
       </div>
     );
   }
   if (lastError) {
+    const dualBandHint = isNetworkReachabilityError(lastError)
+      ? " Dual-band Wi‑Fi (2.4 GHz vs 5 GHz) often uses different IPs — put PC and phone on the same band, use Find phone on network, or copy the IP from the phone app."
+      : "";
     return (
       <div className="easy-status easy-status-bad" role="status">
         <div className="easy-status-title">Not connected</div>
-        <div className="easy-status-detail">{lastError}</div>
+        <div className="easy-status-detail">
+          {lastError}
+          {dualBandHint}
+        </div>
+      </div>
+    );
+  }
+  if (
+    savedHost &&
+    currentHost &&
+    savedHost !== currentHost
+  ) {
+    return (
+      <div className="easy-status easy-status-warn" role="status">
+        <div className="easy-status-title">Phone IP changed</div>
+        <div className="easy-status-detail">
+          Saved IP was <code>{savedHost}</code>. Tap <strong>Connect for phone calls</strong> with{" "}
+          <code>{currentHost}</code> (from the phone app).
+        </div>
       </div>
     );
   }
   if (savedHost) {
     return (
       <div className="easy-status easy-status-warn" role="status">
-        <div className="easy-status-title">Phone IP saved</div>
+        <div className="easy-status-title">Not connected yet</div>
         <div className="easy-status-detail">
-          Tap <strong>Connect for phone calls</strong> (IP <code>{savedHost}</code>).
+          Phone IP <code>{savedHost}</code> is saved. Tap <strong>Connect for phone calls</strong>{" "}
+          (phone must show <strong>Start for calls</strong>).
         </div>
       </div>
     );
@@ -472,4 +1149,19 @@ function EasyLinkStatus({
       </div>
     </div>
   );
+}
+
+function isNetworkReachabilityError(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  return (
+    lower.includes("unreachable") ||
+    lower.includes("no route") ||
+    lower.includes("timed out") ||
+    lower.includes("cannot reach")
+  );
+}
+
+function discoveryHintForError(msg: string): string | null {
+  if (!isNetworkReachabilityError(msg)) return null;
+  return "If you switched Wi‑Fi bands (2.4 vs 5 GHz), use Find phone on network or the IP shown on the phone.";
 }
