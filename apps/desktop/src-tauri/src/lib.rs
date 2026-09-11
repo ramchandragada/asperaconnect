@@ -1595,13 +1595,17 @@ async fn companion_hello(
         .await
         {
             Ok((session, stream)) => {
+                // LAN path won — drop any stale cloud socket so calls use this IP.
+                *app_state.relay_link.lock().await = None;
                 *app_state.companion.lock().await = session.clone();
                 let mut cfg = AppConfig::load();
                 cfg.companion_host = Some(host.clone());
                 cfg.companion_name = Some(name.clone());
+                cfg.relay_linked = false;
                 if let Some(p) = pin.clone() {
                     cfg.companion_pin = if p.is_empty() { None } else { Some(p) };
                 }
+                // Keep relay_session_id/secret so cloud rejoin still works later.
                 let _ = cfg.save();
 
                 let (tx, mut rx) = mpsc::unbounded_channel::<PhoneNotification>();
