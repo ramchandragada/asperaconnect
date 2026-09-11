@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 52" fill="none" role="img" aria-label="Aspera">
+  <rect width="220" height="52" rx="10" fill="#0B1220"/>
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 40 L34 10" stroke="#9AAFE8" stroke-width="6.5"/>
+    <path d="M34 10 L50 40" stroke="#FFFFFF" stroke-width="6.5"/>
+  </g>
+  <text x="62" y="35" font-family="Montserrat, Outfit, Arial Black, sans-serif" font-size="26" font-weight="700" letter-spacing="0.12em" fill="#FFFFFF">SPERA</text>
+</svg>

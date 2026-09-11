@@ -1,0 +1,30 @@
+Aspera Connect — Play Store listing (paste)
+
+App name
+  Aspera Connect
+
+Short description (≤80 chars)
+  Click-to-call from Linux Aspera Hub / Zoho to your Android phone.
+
+Full description
+  Aspera Connect is the Android companion for Aspera Hub and Aspera Connect on Linux.
+
+  Pair once with a QR code (works across any network). Then click phone numbers in Zoho or Hub — your phone places the call. Sync contacts to the PC, hang up from the desktop, and keep working without typing IPs.
+
+  • QR pair over internet (or same Wi‑Fi)
+  • Click-to-call from PC / Hub / Zoho tel: links
+  • Contacts sync to Linux desktop
+  • Hang up from PC
+  • No Developer Options required for daily use
+
+  Publisher: The GST Co
+  Support: marketing@thegstco.com
+
+Category
+  Business  (or Productivity)
+
+Contact email
+  marketing@thegstco.com
+
+Privacy policy
+  https://cdn.jsdelivr.net/gh/ramchandragada/asperaconnect@cursor/phone-contacts-sync-5b4f/website/privacy.html

@@ -83,7 +83,7 @@ export function SetupDoctorPanel({ report }: { report: SetupReport | null }) {
             padding: "0.65rem 0.75rem",
             borderRadius: 12,
             border: "1px solid var(--line)",
-            background: "rgba(0,0,0,0.15)",
+            background: "color-mix(in srgb, var(--ink) 3%, var(--bg2))",
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>

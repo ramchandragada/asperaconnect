@@ -10,6 +10,31 @@ use tokio::sync::mpsc;
 
 type NotificationSender = mpsc::UnboundedSender<PhoneNotification>;
 
+fn companion_connect_error(host: &str, port: u16, err: std::io::Error) -> AsperaError {
+    let hint = match err.kind() {
+        std::io::ErrorKind::HostUnreachable | std::io::ErrorKind::NetworkUnreachable => {
+            format!(
+                "PC cannot reach the phone at {host}. Check: phone and PC on the same reachable network \
+                 (same Wi‑Fi band if 2.4 GHz / 5 GHz are split), IP matches the phone app, Start for calls is running."
+            )
+        }
+        std::io::ErrorKind::ConnectionRefused => format!(
+            "Phone at {host} refused port {port}. Open Aspera Connect on the phone and tap Start for calls."
+        ),
+        std::io::ErrorKind::TimedOut => format!(
+            "Timed out reaching {host}:{port}. Phone may be asleep, on another network, or blocked by firewall."
+        ),
+        _ if err.raw_os_error() == Some(113) => {
+            format!(
+                "No route to {host} — phone unreachable on the network. If your router splits 2.4 GHz and 5 GHz, \
+                 put PC and phone on the same band, use Find phone on network, or copy the IP from the phone app."
+            )
+        }
+        _ => format!("Could not connect to phone at {host}:{port}: {err}"),
+    };
+    AsperaError::Message(hint)
+}
+
 /// Connect to the Easy-mode companion control plane and complete Hello.
 pub async fn connect_companion(
     host: &str,
@@ -20,7 +45,7 @@ pub async fn connect_companion(
     let addr = format!("{host}:{port}");
     let stream = TcpStream::connect(&addr)
         .await
-        .map_err(|e| AsperaError::Message(format!("companion connect failed: {e}")))?;
+        .map_err(|e| companion_connect_error(host, port, e))?;
     let stream = complete_hello(stream, pin, Some(name_hint)).await?;
     let session = CompanionSessionState {
         connected: true,
@@ -135,6 +160,110 @@ pub async fn companion_place_call(
     } else {
         Err(AsperaError::Message(message))
     }
+}
+
+/// One-shot: hello + endCall on the companion.
+pub async fn companion_end_call(
+    host: &str,
+    port: u16,
+    pin: Option<&str>,
+) -> Result<String, AsperaError> {
+    let addr = format!("{host}:{port}");
+    let stream = TcpStream::connect(&addr)
+        .await
+        .map_err(|e| AsperaError::Message(format!(
+            "companion unreachable at {addr}: {e}. On the phone open Aspera Connect → Start for calls."
+        )))?;
+    let stream = complete_hello(stream, pin, Some("Hang up")).await?;
+    let (reader, mut writer) = stream.into_split();
+    let mut reader = BufReader::new(reader);
+
+    writer
+        .write_all(b"{\"type\":\"endCall\"}\n")
+        .await
+        .map_err(|e| AsperaError::Message(e.to_string()))?;
+
+    let mut line = String::new();
+    reader
+        .read_line(&mut line)
+        .await
+        .map_err(|e| AsperaError::Message(e.to_string()))?;
+    let ack: serde_json::Value = serde_json::from_str(line.trim())
+        .map_err(|e| AsperaError::Message(format!("bad endCallAck: {e}")))?;
+    if ack.get("type").and_then(|v| v.as_str()) != Some("endCallAck") {
+        return Err(AsperaError::Message(format!(
+            "unexpected companion reply: {}",
+            line.trim()
+        )));
+    }
+    let ok = ack.get("ok").and_then(|v| v.as_bool()).unwrap_or(false);
+    let message = ack
+        .get("message")
+        .and_then(|v| v.as_str())
+        .unwrap_or(if ok { "Call ended" } else { "Hang up failed" })
+        .to_string();
+    if ok {
+        Ok(message)
+    } else {
+        Err(AsperaError::Message(message))
+    }
+}
+
+/// One-shot: hello + listContacts on the companion.
+pub async fn companion_list_contacts(
+    host: &str,
+    port: u16,
+    pin: Option<&str>,
+) -> Result<Vec<crate::contacts::PhoneContact>, AsperaError> {
+    let addr = format!("{host}:{port}");
+    let stream = TcpStream::connect(&addr)
+        .await
+        .map_err(|e| AsperaError::Message(format!(
+            "companion unreachable at {addr}: {e}. On the phone open Aspera Connect → Start for calls."
+        )))?;
+    let stream = complete_hello(stream, pin, Some("Contacts sync")).await?;
+    let (reader, mut writer) = stream.into_split();
+    let mut reader = BufReader::new(reader);
+
+    writer
+        .write_all(b"{\"type\":\"listContacts\"}\n")
+        .await
+        .map_err(|e| AsperaError::Message(e.to_string()))?;
+
+    let mut line = String::new();
+    reader
+        .read_line(&mut line)
+        .await
+        .map_err(|e| AsperaError::Message(e.to_string()))?;
+    let ack: serde_json::Value = serde_json::from_str(line.trim())
+        .map_err(|e| AsperaError::Message(format!("bad contacts reply: {e}")))?;
+    if ack.get("type").and_then(|v| v.as_str()) != Some("contacts") {
+        return Err(AsperaError::Message(format!(
+            "unexpected companion reply: {}",
+            line.trim()
+        )));
+    }
+    let ok = ack.get("ok").and_then(|v| v.as_bool()).unwrap_or(false);
+    if !ok {
+        let reason = ack
+            .get("reason")
+            .and_then(|v| v.as_str())
+            .unwrap_or("contacts_failed");
+        return Err(AsperaError::Message(match reason {
+            "need_contacts_permission" => {
+                "Allow Contacts on the phone (Start for calls → Allow), then Sync again.".into()
+            }
+            other => format!("Could not read contacts ({other})"),
+        }));
+    }
+
+    let list = ack
+        .get("contacts")
+        .cloned()
+        .unwrap_or(serde_json::Value::Array(vec![]));
+    let contacts: Vec<crate::contacts::PhoneContact> = serde_json::from_value(list)
+        .map_err(|e| AsperaError::Message(format!("contacts parse: {e}")))?;
+    Ok(contacts)
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

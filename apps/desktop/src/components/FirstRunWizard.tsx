@@ -1,3 +1,5 @@
+import asperaLogo from "../assets/aspera-logo.png";
+
 export function FirstRunWizard({ onContinue }: { onContinue: () => void }) {
   return (
     <div
@@ -24,8 +26,14 @@ export function FirstRunWizard({ onContinue }: { onContinue: () => void }) {
           }}
         />
         <div style={{ position: "relative" }}>
-          <div className="brand" style={{ fontSize: "2.4rem", marginBottom: "0.35rem" }}>
-            Aspera Connect
+          <img
+            src={asperaLogo}
+            alt="Aspera"
+            className="brand-logo"
+            style={{ maxWidth: 240, marginBottom: "0.85rem" }}
+          />
+          <div className="page-title" style={{ fontSize: "1.55rem", marginBottom: "0.35rem" }}>
+            Connect
           </div>
           <p style={{ color: "var(--muted)", marginTop: 0, fontSize: "1.1rem" }}>
             Click-to-call from Linux to your phone. Free, local, no account.
@@ -33,7 +41,9 @@ export function FirstRunWizard({ onContinue }: { onContinue: () => void }) {
 
           <ol style={{ color: "var(--ink)", lineHeight: 1.6, paddingLeft: "1.2rem" }}>
             <li>Install the companion app on your phone.</li>
-            <li>Tap <strong>Start for calls</strong> and note the phone IP.</li>
+            <li>
+              Tap <strong>Start for calls</strong> and note the phone IP.
+            </li>
             <li>On this PC, connect with that IP — Hub / Zoho can dial.</li>
           </ol>
 

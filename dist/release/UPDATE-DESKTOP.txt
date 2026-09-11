@@ -1,0 +1,18 @@
+# Install latest Aspera Connect desktop (with Show QR)
+
+# 1) Quit Aspera Connect completely (tray icon too — right-click Quit)
+
+# 2) Download + FORCE reinstall (same version number used to skip update)
+curl -L --http1.1 -o /tmp/AsperaConnect-Desktop.deb \
+  "https://github.com/ramchandragada/asperaconnect/raw/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-Desktop.deb"
+
+sudo apt install -y --reinstall /tmp/AsperaConnect-Desktop.deb
+# if apt still skips:
+# sudo dpkg -i /tmp/AsperaConnect-Desktop.deb
+
+# 3) Open Aspera Connect again
+# Phone calls page must show a blue button: "Show QR to pair"
+# Tap it → big QR appears → phone Scan PC QR
+
+# Verify binary has QR:
+# strings $(which aspera-connect) | grep -F "Show QR" | head

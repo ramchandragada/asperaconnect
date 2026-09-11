@@ -1,0 +1,13 @@
+Aspera Connect — install
+========================
+
+PHONE (do this first)
+  Open on the phone:
+  https://play.google.com/apps/internaltest/4701460117553190758
+  Become a tester → Install from Play → Start for calls
+
+PC
+  https://github.com/ramchandragada/asperaconnect/raw/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-Desktop.deb
+  Install → Aspera Connect → Show QR to pair → phone Scan PC QR
+
+Relay: wss://aspera-connect-relay.onrender.com

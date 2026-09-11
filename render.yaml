@@ -1,0 +1,18 @@
+# Aspera Connect — Render Blueprint
+# One-click: https://render.com/deploy?repo=https://github.com/ramchandragada/asperaconnect&branch=cursor/phone-contacts-sync-5b4f
+
+services:
+  - type: web
+    name: aspera-connect-relay
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: apps/relay
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: SESSION_TTL_MS
+        value: "600000"

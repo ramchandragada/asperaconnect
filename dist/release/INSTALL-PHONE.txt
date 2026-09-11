@@ -1,0 +1,31 @@
+Aspera Connect — phone install (simple)
+=======================================
+
+BEST — Google Play Internal testing (live)
+--------------------------------------------------------------------
+On the PHONE (Google account must be on the tester list):
+
+  https://play.google.com/apps/internaltest/4701460117553190758
+
+1. Open link → Accept / Become a tester
+2. Install Aspera Connect from Play Store
+3. Open app → Start for calls → Scan PC QR
+
+No USB. No Developer Options. No Play Protect fight.
+Version: 0.3.11
+
+Allow-listed emails:
+  cashaameet@gmail.com
+  gadaramchandra@gmail.com
+  marketing@thegstco.com
+  priyanka@thegstco.com
+  ramchandragada@gmail.com
+  thegstco9@gmail.com
+
+If "not available": that Gmail is not on the list — ask IT to add it.
+
+FALLBACK — sideload APK (only if Play join fails)
+--------------------------------------------------------------------
+  https://cdn.jsdelivr.net/gh/ramchandragada/asperaconnect@cursor/phone-contacts-sync-5b4f/website/phone.html
+
+USB emergency only: INSTALL-PHONE-USB.txt

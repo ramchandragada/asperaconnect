@@ -1,0 +1,27 @@
+Aspera Connect — Data safety form answers (Play Console)
+
+Does your app collect or share user data?
+  Yes (limited — for app functionality)
+
+Data collected
+  • Phone number (ephemeral) — to place a call the user started from the PC
+  • Contacts — read on device to sync to the user's own PC
+  • App activity / crash — only if you later add Play crash reporting (optional; default No)
+
+Is data encrypted in transit?
+  Yes (HTTPS / WSS to relay; LAN optional cleartext on user network)
+
+Can users request deletion?
+  Yes — uninstall the app; no cloud account is created. Contacts are not stored on our servers.
+
+Data sold / used for ads / fraud / credit?
+  No / No / No / No
+
+Data shared with third parties?
+  No (relay only forwards short-lived pairing/call messages between the user's PC and phone)
+
+Sensitive permissions explanation (if asked)
+  CALL_PHONE / ANSWER_PHONE_CALLS: place and end calls requested from the Linux PC.
+  READ_CONTACTS: show contacts on the PC for click-to-call.
+  CAMERA: optional QR scan to pair with the PC.
+  FOREGROUND_SERVICE: keep companion listening while you work in other apps.

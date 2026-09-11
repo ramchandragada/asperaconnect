@@ -1,0 +1,26 @@
+Aspera Connect — phone install via USB (bypasses Play Protect)
+==============================================================
+
+Use this when the phone shows:
+  "App blocked to protect your device"  (only an OK button)
+
+Google Play Protect hard-blocks some sideloaded apps. USB install works.
+
+On the PC (Linux Mint / Ubuntu):
+
+  1. Enable on the phone:
+       Settings → About phone → tap Build number 7 times
+       Settings → Developer options → USB debugging ON
+  2. Plug phone into PC with USB cable → Allow USB debugging on phone
+  3. Run:
+
+       sudo apt install -y adb
+       curl -L --http1.1 -o /tmp/AsperaConnect-Phone.apk \
+         "https://github.com/ramchandragada/asperaconnect/raw/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-Phone.apk"
+       adb install -r /tmp/AsperaConnect-Phone.apk
+
+  4. On phone: open Aspera Connect → Start for calls
+
+If adb says unauthorized: unlock phone → Allow this computer → try again.
+
+After install you can turn USB debugging OFF again.

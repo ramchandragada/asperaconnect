@@ -1,10 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   AppConfig,
+  CallHistory,
   CommandResult,
   CompanionDevice,
   CompanionSessionState,
+  ContactsCache,
   Device,
+  FavoritesStore,
   KdeStatus,
   MirrorHandle,
   MirrorProfile,
@@ -12,6 +15,7 @@ import type {
   PairResult,
   PhoneApp,
   PhoneNotification,
+  QrPairSession,
   SetupReport,
   ToolsReport,
 } from "./types";
@@ -80,6 +84,7 @@ export const api = {
     ),
   copyPhotoToClipboard: (serial: string, remote: string) =>
     invoke<CommandResult<string>>("copy_photo_to_clipboard", { serial, remote }),
+  readSystemClipboard: () => invoke<CommandResult<string>>("read_system_clipboard"),
   getDeviceClipboard: (serial: string) =>
     invoke<CommandResult<string>>("get_device_clipboard", { serial }),
   setDeviceClipboard: (serial: string, text: string) =>
@@ -133,6 +138,18 @@ export const api = {
       name,
       pin: pin || null,
     }),
+  startQrPairing: () => invoke<CommandResult<QrPairSession>>("start_qr_pairing"),
+  stopQrPairing: () => invoke<void>("stop_qr_pairing"),
+  syncPhoneContacts: (host?: string | null) =>
+    invoke<CommandResult<ContactsCache>>("sync_phone_contacts", { host: host ?? null }),
+  loadCachedContacts: () => invoke<ContactsCache>("load_cached_contacts"),
+  loadCallHistory: () => invoke<CallHistory>("load_call_history"),
+  recordCallHistory: (name: string, number: string, outcome: "dialed" | "ended" | "failed") =>
+    invoke<CommandResult<CallHistory>>("record_call_history", { name, number, outcome }),
+  clearCallHistory: () => invoke<CommandResult<CallHistory>>("clear_call_history"),
+  loadFavorites: () => invoke<FavoritesStore>("load_favorites"),
+  toggleFavorite: (id: string, name: string, number: string) =>
+    invoke<CommandResult<FavoritesStore>>("toggle_favorite", { id, name, number }),
   companionPlaceCall: (args: {
     number: string;
     host?: string | null;
@@ -143,6 +160,8 @@ export const api = {
       host: args.host ?? null,
       direct: args.direct ?? true,
     }),
+  companionEndCall: (host?: string | null) =>
+    invoke<CommandResult<string>>("companion_end_call", { host: host ?? null }),
   companionStartMirror: (host?: string | null) =>
     invoke<
       CommandResult<{ host: string; port: number; width: number; height: number; codec: string }>
