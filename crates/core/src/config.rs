@@ -155,6 +155,12 @@ pub struct AppConfig {
     /// When true, last successful link used the cloud relay (not LAN IP).
     #[serde(default)]
     pub relay_linked: bool,
+    /// Durable relay session from one-time QR pair (survives app restart).
+    #[serde(default)]
+    pub relay_session_id: Option<String>,
+    /// Secret for rejoining the durable relay session.
+    #[serde(default)]
+    pub relay_secret: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -189,6 +195,8 @@ impl Default for AppConfig {
             favorite_apps: default_favorite_packages(),
             relay_url: default_relay_url(),
             relay_linked: false,
+            relay_session_id: None,
+            relay_secret: None,
         }
     }
 }

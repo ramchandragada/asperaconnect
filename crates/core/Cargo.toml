@@ -20,6 +20,6 @@ log.workspace = true
 mdns-sd = "0.13"
 regex.workspace = true
 parking_lot.workspace = true
-tokio-tungstenite = { version = "0.26", features = ["native-tls"] }
+tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }
 futures-util = "0.3"
 url = "2"

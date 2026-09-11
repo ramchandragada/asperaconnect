@@ -21,5 +21,7 @@ PHONE (Google Play Internal testing)
 PC
   https://github.com/ramchandragada/asperaconnect/raw/cursor/phone-contacts-sync-5b4f/dist/release/AsperaConnect-Desktop.deb
 
-Pair: PC Show QR → Phone Scan PC QR
+Pair: PC Show QR → Phone Scan PC QR (once — pair is saved; no need to re-scan)
 Relay: wss://aspera-connect-relay.onrender.com
+Phone app: keep “Start for calls” / notification running so the link stays online.
+Desktop 0.3.x + Phone 0.3.12: auto-rejoin after restart; relay must be redeployed for durable pairs.

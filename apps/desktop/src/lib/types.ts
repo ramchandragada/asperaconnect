@@ -82,6 +82,8 @@ export interface AppConfig {
   favoriteApps?: string[];
   relayUrl?: string;
   relayLinked?: boolean;
+  relaySessionId?: string | null;
+  relaySecret?: string | null;
 }
 
 export interface UserFacingError {

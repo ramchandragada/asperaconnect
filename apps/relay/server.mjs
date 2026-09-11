@@ -2,8 +2,8 @@
 /**
  * Aspera Connect cloud relay — WhatsApp-style pairing across networks.
  *
- * Both PC and phone dial OUT to this server over WebSocket.
- * QR carries only a short-lived session id + secret (not IPs).
+ * Pair ONCE. Sessions stay alive for days so PC/phone can reconnect
+ * without scanning QR again (rejoin with the same sessionId + secret).
  *
  * Protocol (JSON text frames):
  *   { "type":"create", "role":"pc", "name":"Office-PC" }
@@ -13,6 +13,10 @@
  *   → { "type":"joined", "ok":true }
  *   → both get { "type":"paired", "pcName":"...", "phoneName":"..." }
  *
+ *   { "type":"rejoin", "role":"pc"|"phone", "sessionId":"...", "secret":"...", "name":"..." }
+ *   → { "type":"rejoined", "ok":true, "paired":true }
+ *   → if peer online: both get { "type":"paired", ... }
+ *
  * After paired, any other JSON message is forwarded to the peer.
  * Heartbeat: { "type":"ping" } → { "type":"pong" }
  */
@@ -21,10 +25,28 @@ import { randomBytes } from "node:crypto";
 import { WebSocketServer } from "ws";
 
 const PORT = Number(process.env.PORT || 8787);
-const TTL_MS = Number(process.env.SESSION_TTL_MS || 10 * 60 * 1000);
+/** Unpaired QR offer lifetime */
+const PAIR_OFFER_TTL_MS = Number(process.env.SESSION_TTL_MS || 10 * 60 * 1000);
+/** Paired link lifetime from last activity (default 30 days) */
+const PAIRED_TTL_MS = Number(process.env.PAIRED_TTL_MS || 30 * 24 * 60 * 60 * 1000);
+/** Drop paired session only after BOTH sides offline this long */
+const BOTH_OFFLINE_TTL_MS = Number(process.env.BOTH_OFFLINE_TTL_MS || 24 * 60 * 60 * 1000);
 const MAX_SESSIONS = Number(process.env.MAX_SESSIONS || 5000);
 
-/** @typedef {{ id: string, secret: string, pc: import('ws').WebSocket|null, phone: import('ws').WebSocket|null, pcName: string, phoneName: string, createdAt: number, paired: boolean }} Session */
+/**
+ * @typedef {{
+ *   id: string,
+ *   secret: string,
+ *   pc: import('ws').WebSocket|null,
+ *   phone: import('ws').WebSocket|null,
+ *   pcName: string,
+ *   phoneName: string,
+ *   createdAt: number,
+ *   lastActivity: number,
+ *   paired: boolean,
+ *   bothOfflineSince: number|null,
+ * }} Session
+ */
 
 /** @type {Map<string, Session>} */
 const sessions = new Map();
@@ -37,16 +59,41 @@ function newSecret() {
   return randomBytes(24).toString("base64url");
 }
 
+function touch(s) {
+  s.lastActivity = Date.now();
+  if (s.pc || s.phone) s.bothOfflineSince = null;
+}
+
 function cleanup() {
   const now = Date.now();
   for (const [id, s] of sessions) {
-    if (now - s.createdAt > TTL_MS) {
-      try {
-        s.pc?.close();
-      } catch {}
-      try {
-        s.phone?.close();
-      } catch {}
+    if (!s.paired) {
+      if (now - s.createdAt > PAIR_OFFER_TTL_MS) {
+        try {
+          s.pc?.close();
+        } catch {}
+        try {
+          s.phone?.close();
+        } catch {}
+        sessions.delete(id);
+      }
+      continue;
+    }
+    // Paired: keep while either side is connected, or until long idle offline.
+    if (s.pc || s.phone) {
+      if (now - s.lastActivity > PAIRED_TTL_MS) {
+        try {
+          s.pc?.close();
+        } catch {}
+        try {
+          s.phone?.close();
+        } catch {}
+        sessions.delete(id);
+      }
+      continue;
+    }
+    if (s.bothOfflineSince == null) s.bothOfflineSince = now;
+    if (now - s.bothOfflineSince > BOTH_OFFLINE_TTL_MS) {
       sessions.delete(id);
     }
   }
@@ -66,17 +113,58 @@ function peerOf(session, ws) {
 }
 
 function detach(ws) {
-  for (const [id, s] of sessions) {
-    if (s.pc === ws) s.pc = null;
-    if (s.phone === ws) s.phone = null;
-    if (!s.pc && !s.phone) sessions.delete(id);
+  for (const [, s] of sessions) {
+    let changed = false;
+    if (s.pc === ws) {
+      s.pc = null;
+      changed = true;
+    }
+    if (s.phone === ws) {
+      s.phone = null;
+      changed = true;
+    }
+    if (!changed) continue;
+    if (s.paired && (s.pc || s.phone)) {
+      const other = s.pc || s.phone;
+      send(other, { type: "peer_disconnected" });
+    }
+    if (!s.pc && !s.phone) {
+      if (!s.paired) {
+        sessions.delete(s.id);
+      } else if (s.bothOfflineSince == null) {
+        s.bothOfflineSince = Date.now();
+      }
+    }
   }
+}
+
+function attachRole(s, role, ws, name) {
+  if (role === "pc") {
+    if (s.pc && s.pc !== ws) {
+      try {
+        s.pc.close();
+      } catch {}
+    }
+    s.pc = ws;
+    if (name) s.pcName = String(name).slice(0, 64);
+  } else {
+    if (s.phone && s.phone !== ws) {
+      try {
+        s.phone.close();
+      } catch {}
+    }
+    s.phone = ws;
+    if (name) s.phoneName = String(name).slice(0, 64);
+  }
+  touch(s);
 }
 
 const server = http.createServer((req, res) => {
   if (req.url === "/health") {
     res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify({ ok: true, sessions: sessions.size }));
+    let paired = 0;
+    for (const s of sessions.values()) if (s.paired) paired += 1;
+    res.end(JSON.stringify({ ok: true, sessions: sessions.size, paired }));
     return;
   }
   res.writeHead(200, { "content-type": "text/plain" });
@@ -112,6 +200,7 @@ wss.on("connection", (ws) => {
       }
       const id = newId();
       const secret = newSecret();
+      const now = Date.now();
       sessions.set(id, {
         id,
         secret,
@@ -119,48 +208,81 @@ wss.on("connection", (ws) => {
         phone: null,
         pcName: String(msg.name || "PC").slice(0, 64),
         phoneName: "",
-        createdAt: Date.now(),
+        createdAt: now,
+        lastActivity: now,
         paired: false,
+        bothOfflineSince: null,
       });
       sessionId = id;
       send(ws, {
         type: "created",
         sessionId: id,
         secret,
-        expiresInSec: Math.floor(TTL_MS / 1000),
+        expiresInSec: Math.floor(PAIR_OFFER_TTL_MS / 1000),
       });
       return;
     }
 
-    if (type === "join") {
+    if (type === "join" || type === "rejoin") {
       const id = String(msg.sessionId || "");
       const secret = String(msg.secret || "");
+      const role = String(msg.role || (type === "join" ? "phone" : "")).toLowerCase();
       const s = sessions.get(id);
       if (!s || s.secret !== secret) {
-        send(ws, { type: "joined", ok: false, reason: "invalid_or_expired" });
+        send(ws, {
+          type: type === "rejoin" ? "rejoined" : "joined",
+          ok: false,
+          reason: "invalid_or_expired",
+        });
         return;
       }
-      if (Date.now() - s.createdAt > TTL_MS) {
-        sessions.delete(id);
-        send(ws, { type: "joined", ok: false, reason: "expired" });
+
+      if (type === "join") {
+        if (!s.paired && Date.now() - s.createdAt > PAIR_OFFER_TTL_MS) {
+          sessions.delete(id);
+          send(ws, { type: "joined", ok: false, reason: "expired" });
+          return;
+        }
+        if (role && role !== "phone") {
+          send(ws, { type: "joined", ok: false, reason: "role_must_be_phone" });
+          return;
+        }
+        // First-time phone join (or phone replacing its socket).
+        attachRole(s, "phone", ws, msg.name);
+        s.paired = true;
+        sessionId = id;
+        send(ws, { type: "joined", ok: true });
+        const payload = {
+          type: "paired",
+          pcName: s.pcName,
+          phoneName: s.phoneName,
+        };
+        send(s.pc, payload);
+        send(s.phone, payload);
         return;
       }
-      if (s.phone && s.phone !== ws) {
-        send(ws, { type: "joined", ok: false, reason: "already_paired" });
+
+      // rejoin — either role, for durable one-time pair
+      if (!s.paired) {
+        send(ws, { type: "rejoined", ok: false, reason: "not_paired_yet" });
         return;
       }
-      s.phone = ws;
-      s.phoneName = String(msg.name || "Phone").slice(0, 64);
-      s.paired = true;
+      if (role !== "pc" && role !== "phone") {
+        send(ws, { type: "rejoined", ok: false, reason: "role_required" });
+        return;
+      }
+      attachRole(s, role, ws, msg.name);
       sessionId = id;
-      send(ws, { type: "joined", ok: true });
-      const payload = {
-        type: "paired",
-        pcName: s.pcName,
-        phoneName: s.phoneName,
-      };
-      send(s.pc, payload);
-      send(s.phone, payload);
+      send(ws, { type: "rejoined", ok: true, paired: true });
+      if (s.pc && s.phone) {
+        const payload = {
+          type: "paired",
+          pcName: s.pcName,
+          phoneName: s.phoneName,
+        };
+        send(s.pc, payload);
+        send(s.phone, payload);
+      }
       return;
     }
 
@@ -171,13 +293,17 @@ wss.on("connection", (ws) => {
         send(ws, { type: "error", reason: "not_paired" });
         return;
       }
+      touch(s);
       const other = peerOf(s, ws);
       if (!other) {
         send(ws, { type: "error", reason: "peer_gone" });
         return;
       }
-      // Do not forward relay control types.
-      if (["create", "join", "created", "joined", "paired", "ping", "pong"].includes(type)) {
+      if (
+        ["create", "join", "rejoin", "created", "joined", "rejoined", "paired", "ping", "pong"].includes(
+          type,
+        )
+      ) {
         return;
       }
       send(other, msg);
@@ -192,5 +318,5 @@ wss.on("connection", (ws) => {
 });
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`aspera-relay listening on :${PORT}`);
+  console.log(`aspera-relay listening on :${PORT} (durable pairs enabled)`);
 });

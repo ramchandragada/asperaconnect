@@ -3,7 +3,8 @@
 **Join link (WhatsApp this to employees):**  
 https://play.google.com/apps/internaltest/4701460117553190758
 
-Version: **0.3.11** (versionCode 20) — Active on Internal testing.  
+Version: **0.3.12** (versionCode 21) — one-time durable pair + auto-rejoin.  
+Previous: 0.3.11 (versionCode 20) was active on Internal testing.  
 Testers: cashaameet@gmail.com, gadaramchandra@gmail.com, marketing@thegstco.com, priyanka@thegstco.com, ramchandragada@gmail.com, thegstco9@gmail.com
 
 Employees: open link on phone → become a tester → Install from Play → Scan PC QR.
@@ -49,7 +50,7 @@ chmod +x scripts/create-play-upload-keystore.sh scripts/build-play-aab.sh
 5. **Release → Testing → Internal testing**
    - Create email list: add employee Gmail / Workspace addresses (+ yours)
    - Create new release → upload `AsperaConnect-Phone-Play.aab`
-   - Release name: `0.3.11`
+   - Release name: `0.3.12`
    - Roll out to Internal testing
 6. Copy **join link** / how testers join → send to employees (WhatsApp)
 
@@ -65,6 +66,7 @@ No APK. No USB. No Developer Options.
 
 - Application id: `com.asperaconnect.companion`
 - First Play versionCode: `20` / versionName `0.3.11`
+- Durable pair fix: `21` / `0.3.12`
 
 ## After it works
 

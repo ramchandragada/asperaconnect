@@ -123,6 +123,7 @@ class CompanionService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
+                RelaySession.disconnect(clearSaved = false)
                 releaseLocks()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
@@ -148,9 +149,33 @@ class CompanionService : Service() {
                     linkedPcName = null
                     broadcastStatus(STATUS_LISTENING, null)
                 }
+                // One-time cloud pair: auto-rejoin relay when service starts.
+                resumeRelayIfSaved()
             }
         }
         return START_STICKY
+    }
+
+    private fun resumeRelayIfSaved() {
+        if (!RelaySession.hasSavedPair(this)) return
+        Thread {
+            RelaySession.resumeSaved(
+                this,
+                onStatus = { ok, msg ->
+                    if (ok) {
+                        val pc = RelaySession.pcName ?: "PC"
+                        linkedClients.set(1)
+                        ensureForeground("Linked to $pc — click-to-call ready (internet)")
+                        broadcastStatus(STATUS_LINKED, pc)
+                    } else {
+                        Log.w(TAG, "relay resume: $msg")
+                    }
+                },
+                onCommand = { msg, reply ->
+                    reply(handleRelayCommand(msg))
+                },
+            )
+        }.start()
     }
 
     private fun acquireLocks() {
@@ -653,6 +678,7 @@ class CompanionService : Service() {
         lastLocalIp = null
         linkedPcName = null
         broadcastStatus(STATUS_STOPPED, null)
+        RelaySession.disconnect(clearSaved = false)
         foregroundReady = false
         instance = null
         scope.cancel()

@@ -8,5 +8,12 @@ services:
     startCommand: npm start
     healthCheckPath: /health
     envVars:
+      # Unpaired QR offer lifetime (10 minutes)
       - key: SESSION_TTL_MS
         value: "600000"
+      # Paired session idle TTL (30 days) — one-time pair stays valid
+      - key: PAIRED_TTL_MS
+        value: "2592000000"
+      # Drop only after both PC and phone offline this long (24h)
+      - key: BOTH_OFFLINE_TTL_MS
+        value: "86400000"

@@ -208,6 +208,47 @@ pub async fn pc_wait_paired(link: &RelayLink) -> Result<(), AsperaError> {
     }
 }
 
+/// Rejoin an existing durable session (one-time QR pair) after restart / drop.
+pub async fn pc_rejoin_session(
+    relay_url: &str,
+    session_id: &str,
+    secret: &str,
+    pc_name: &str,
+) -> Result<Arc<RelayLink>, AsperaError> {
+    let (out_tx, mut in_rx) = open_socket(relay_url).await?;
+    out_tx
+        .send(json!({
+            "type": "rejoin",
+            "role": "pc",
+            "sessionId": session_id,
+            "secret": secret,
+            "name": pc_name,
+        }))
+        .map_err(|_| AsperaError::Message("Relay send failed".into()))?;
+
+    let rejoined = wait_for(&mut in_rx, "rejoined", Duration::from_secs(20)).await?;
+    if rejoined.get("ok").and_then(|v| v.as_bool()) != Some(true) {
+        let reason = rejoined
+            .get("reason")
+            .and_then(|v| v.as_str())
+            .unwrap_or("rejoin_failed");
+        return Err(AsperaError::Message(format!(
+            "Could not restore phone link ({reason}). Tap Show QR to pair once."
+        )));
+    }
+
+    Ok(Arc::new(RelayLink {
+        tx: out_tx,
+        rx: Mutex::new(in_rx),
+        session_id: session_id.to_string(),
+    }))
+}
+
+pub fn is_routable_companion_host(host: &str) -> bool {
+    let h = host.trim();
+    !h.is_empty() && !h.starts_with("relay:")
+}
+
 pub async fn relay_place_call(
     link: &RelayLink,
     number: &str,

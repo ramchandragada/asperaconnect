@@ -670,21 +670,24 @@ async fn place_call(
         }
     }
 
-    let link = state.relay_link.lock().await.clone();
-    if let Some(link) = link {
-        return Ok(match relay_client::relay_place_call(&link, &number, direct).await {
-            Ok(msg) => CommandResult::ok(msg),
-            Err(e) => CommandResult::err(e),
-        });
+    // Prefer live relay; auto-rejoin durable one-time pair; then LAN/Tailscale.
+    if let Some(msg) = try_relay_place_call(state.inner(), &number, direct).await {
+        return Ok(msg);
     }
 
     let cfg = AppConfig::load();
     let Some(host) = cfg.companion_host.clone() else {
         return Ok(CommandResult::err(AsperaError::Message(
-            "No phone linked. Tap Show QR to pair (works across networks), or Connect with a LAN IP."
+            "No phone linked. Tap Show QR to pair once (works across networks), or Connect with a LAN IP."
                 .into(),
         )));
     };
+    if !relay_client::is_routable_companion_host(&host) {
+        return Ok(CommandResult::err(AsperaError::Message(
+            "Phone link dropped. Open Aspera Connect on the phone (Start for calls), wait 5 seconds, try again. Or Show QR once more."
+                .into(),
+        )));
+    }
     Ok(
         match aspera_core::companion_net::companion_place_call(
             &host,
@@ -701,6 +704,81 @@ async fn place_call(
     )
 }
 
+/// Try cloud relay (with one automatic rejoin). Returns Some(result) if relay path was used.
+async fn try_relay_place_call(
+    state: &Arc<AppState>,
+    number: &str,
+    direct: bool,
+) -> Option<CommandResult<String>> {
+    async fn call_on(link: &RelayLink, number: &str, direct: bool) -> Result<String, AsperaError> {
+        relay_client::relay_place_call(link, number, direct).await
+    }
+
+    let existing = state.relay_link.lock().await.clone();
+    if let Some(link) = existing {
+        match call_on(&link, number, direct).await {
+            Ok(msg) => return Some(CommandResult::ok(msg)),
+            Err(e) => {
+                let msg = e.to_string();
+                // Stale socket / phone briefly offline — drop and try durable rejoin.
+                if !(msg.contains("peer_gone")
+                    || msg.contains("not_paired")
+                    || msg.contains("disconnected")
+                    || msg.contains("Relay closed")
+                    || msg.contains("Relay disconnected"))
+                {
+                    return Some(CommandResult::err(e));
+                }
+                *state.relay_link.lock().await = None;
+            }
+        }
+    }
+
+    // Durable rejoin from saved one-time QR credentials.
+    if let Some(link) = ensure_relay_rejoin(state).await {
+        return Some(match call_on(&link, number, direct).await {
+            Ok(msg) => CommandResult::ok(msg),
+            Err(e) => CommandResult::err(e),
+        });
+    }
+    None
+}
+
+async fn ensure_relay_rejoin(state: &Arc<AppState>) -> Option<Arc<RelayLink>> {
+    if state.relay_link.lock().await.is_some() {
+        return state.relay_link.lock().await.clone();
+    }
+    let cfg = AppConfig::load();
+    let (Some(session_id), Some(secret)) = (cfg.relay_session_id.clone(), cfg.relay_secret.clone())
+    else {
+        return None;
+    };
+    let relay_url = std::env::var("ASPERA_RELAY_URL").unwrap_or(cfg.relay_url.clone());
+    let pc_name = hostname_fallback();
+    match relay_client::pc_rejoin_session(&relay_url, &session_id, &secret, &pc_name).await {
+        Ok(link) => {
+            *state.relay_link.lock().await = Some(link.clone());
+            let mut session = CompanionSessionState::default();
+            session.connected = true;
+            session.device = Some(aspera_core::companion::CompanionDevice {
+                id: format!("relay-{session_id}"),
+                name: cfg
+                    .companion_name
+                    .clone()
+                    .unwrap_or_else(|| "Phone (saved pair)".into()),
+                host: format!("relay:{session_id}"),
+                port: 0,
+                protocol: aspera_core::companion::PROTOCOL_VERSION,
+                battery: None,
+                model: Some("Cloud QR".into()),
+            });
+            *state.companion.lock().await = session;
+            Some(link)
+        }
+        Err(_) => None,
+    }
+}
+
 #[tauri::command]
 async fn companion_place_call(
     state: State<'_, Arc<AppState>>,
@@ -713,18 +791,15 @@ async fn companion_place_call(
         Ok(n) => n,
         Err(e) => return Ok(CommandResult::err(e)),
     };
-    let link = state.relay_link.lock().await.clone();
-    if let Some(link) = link {
-        return Ok(match relay_client::relay_place_call(&link, &number, direct).await {
-            Ok(msg) => CommandResult::ok(msg),
-            Err(e) => CommandResult::err(e),
-        });
+    // Prefer live relay; auto-rejoin durable one-time pair; then LAN/Tailscale.
+    if let Some(msg) = try_relay_place_call(state.inner(), &number, direct).await {
+        return Ok(msg);
     }
     let cfg = AppConfig::load();
     let host = host.or(cfg.companion_host.clone()).unwrap_or_default();
-    if host.is_empty() {
+    if host.is_empty() || !relay_client::is_routable_companion_host(&host) {
         return Ok(CommandResult::err(AsperaError::Message(
-            "No phone linked — Show QR to pair first".into(),
+            "No phone linked — Show QR to pair once, then keep the phone app running.".into(),
         )));
     }
     Ok(
@@ -748,7 +823,10 @@ async fn companion_end_call(
     state: State<'_, Arc<AppState>>,
     host: Option<String>,
 ) -> Result<CommandResult<String>, ()> {
-    let link = state.relay_link.lock().await.clone();
+    let mut link = state.relay_link.lock().await.clone();
+    if link.is_none() {
+        link = ensure_relay_rejoin(state.inner()).await;
+    }
     if let Some(link) = link {
         return Ok(match relay_client::relay_end_call(&link).await {
             Ok(msg) => CommandResult::ok(msg),
@@ -757,7 +835,7 @@ async fn companion_end_call(
     }
     let cfg = AppConfig::load();
     let host = host.or(cfg.companion_host.clone()).unwrap_or_default();
-    if host.is_empty() {
+    if host.is_empty() || !relay_client::is_routable_companion_host(&host) {
         return Ok(CommandResult::err(AsperaError::Message(
             "No phone linked — Show QR to pair first".into(),
         )));
@@ -781,7 +859,10 @@ async fn sync_phone_contacts(
     state: State<'_, Arc<AppState>>,
     host: Option<String>,
 ) -> Result<CommandResult<aspera_core::ContactsCache>, ()> {
-    let link = state.relay_link.lock().await.clone();
+    let mut link = state.relay_link.lock().await.clone();
+    if link.is_none() {
+        link = ensure_relay_rejoin(state.inner()).await;
+    }
     if let Some(link) = link {
         return Ok(match relay_client::relay_list_contacts(&link).await {
             Ok(ack) => {
@@ -801,12 +882,45 @@ async fn sync_phone_contacts(
                     Err(e) => CommandResult::err(e),
                 }
             }
-            Err(e) => CommandResult::err(e),
+            Err(e) => {
+                let msg = e.to_string();
+                if msg.contains("peer_gone")
+                    || msg.contains("not_paired")
+                    || msg.contains("Relay closed")
+                    || msg.contains("Relay disconnected")
+                {
+                    *state.relay_link.lock().await = None;
+                    if let Some(link2) = ensure_relay_rejoin(state.inner()).await {
+                        return Ok(match relay_client::relay_list_contacts(&link2).await {
+                            Ok(ack) => {
+                                let contacts: Vec<aspera_core::PhoneContact> =
+                                    serde_json::from_value(
+                                        ack.get("contacts")
+                                            .cloned()
+                                            .unwrap_or(serde_json::json!([])),
+                                    )
+                                    .unwrap_or_default();
+                                let cache = aspera_core::ContactsCache {
+                                    synced_at: Some(chrono::Utc::now().to_rfc3339()),
+                                    host: Some(format!("relay:{}", link2.session_id)),
+                                    contacts,
+                                };
+                                match cache.save() {
+                                    Ok(()) => CommandResult::ok(cache),
+                                    Err(e) => CommandResult::err(e),
+                                }
+                            }
+                            Err(e2) => CommandResult::err(e2),
+                        });
+                    }
+                }
+                CommandResult::err(e)
+            }
         });
     }
     let cfg = AppConfig::load();
     let host = host.or(cfg.companion_host.clone()).unwrap_or_default();
-    if host.is_empty() {
+    if host.is_empty() || !relay_client::is_routable_companion_host(&host) {
         return Ok(CommandResult::err(AsperaError::Message(
             "No phone linked — Show QR to pair first".into(),
         )));
@@ -1351,6 +1465,7 @@ async fn start_qr_pairing(
         Ok(v) => v,
         Err(e) => return Ok(CommandResult::err(e)),
     };
+    let pair_secret = session.offer.k.clone();
     *state.relay_link.lock().await = Some(link.clone());
 
     let app2 = app.clone();
@@ -1360,11 +1475,13 @@ async fn start_qr_pairing(
             Ok(()) => {
                 let mut cfg = AppConfig::load();
                 cfg.relay_linked = true;
+                cfg.relay_session_id = Some(link.session_id.clone());
+                cfg.relay_secret = Some(pair_secret);
                 cfg.companion_host = Some(format!("relay:{}", link.session_id));
                 let _ = cfg.save();
-                let mut session = CompanionSessionState::default();
-                session.connected = true;
-                session.device = Some(aspera_core::companion::CompanionDevice {
+                let mut session_state = CompanionSessionState::default();
+                session_state.connected = true;
+                session_state.device = Some(aspera_core::companion::CompanionDevice {
                     id: format!("relay-{}", link.session_id),
                     name: "Phone (internet)".into(),
                     host: format!("relay:{}", link.session_id),
@@ -1373,8 +1490,8 @@ async fn start_qr_pairing(
                     battery: None,
                     model: Some("Cloud QR".into()),
                 });
-                *state_link.companion.lock().await = session.clone();
-                let _ = app2.emit("aspera://cloud-paired", session);
+                *state_link.companion.lock().await = session_state.clone();
+                let _ = app2.emit("aspera://cloud-paired", session_state);
             }
             Err(e) => {
                 let _ = app2.emit(
@@ -1624,6 +1741,15 @@ pub fn run() {
             setup_tray(app.handle())?;
             let args: Vec<String> = std::env::args().collect();
             handle_cli_call_args(app.handle(), state.as_ref(), &args);
+            // Restore durable one-time cloud pair after desktop restart.
+            let state_rejoin = state.clone();
+            let app_rejoin = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                if ensure_relay_rejoin(&state_rejoin).await.is_some() {
+                    let session = state_rejoin.companion.lock().await.clone();
+                    let _ = app_rejoin.emit("aspera://cloud-paired", session);
+                }
+            });
             Ok(())
         })
         // Closing the window only hides it — process + phone link stay alive in the tray.
